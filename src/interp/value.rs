@@ -36,9 +36,18 @@ pub enum Value {
     Mat(Matrix<Complex>),
 }
 
+impl Value {
+    pub fn parse(x: &str) -> Option<Self> {
+        Rational::parse(x)
+            .map(Into::into)
+            .or_else(|| Complex::parse(x))
+            .map(Into::into)
+    }
+}
+
 impl Default for Value {
     fn default() -> Self {
-        Self::Rational(Rational { num: 0, denom: 0 })
+        Self::Rational(Rational { num: 0, denom: 1 })
     }
 }
 

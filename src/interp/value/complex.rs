@@ -20,6 +20,18 @@ impl Complex {
     pub fn mag_sq(self) -> Rational {
         self.real * self.real + self.imag * self.imag
     }
+
+    pub fn parse(x: &str) -> Option<Self> {
+        if x == "i" {
+            return Self {
+                real: Rational::ZERO,
+                imag: Rational::ONE,
+            }
+            .into();
+        }
+
+        None
+    }
 }
 
 impl From<Rational> for Complex {

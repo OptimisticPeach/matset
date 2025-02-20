@@ -48,6 +48,9 @@ pub enum TypstAst<'a> {
         upper: BAst<'a>,
         lower: Vec<TypstAst<'a>>,
     },
+
+    #[serde(rename = "op")]
+    Operator { text: BAst<'a>, limits: bool },
 }
 
 #[cfg(test)]

@@ -12,6 +12,35 @@ impl Rational {
     fn unum(&self) -> u128 {
         self.num.abs() as u128
     }
+
+    pub fn parse(x: &str) -> Option<Self> {
+        if let Ok(x) = x.parse::<i128>() {
+            return Some(Rational { num: x, denom: 1 });
+        }
+
+        // only case where it could've not parsed is if
+        // we got a decimal like 1.2
+
+        let mut split = x.split(".");
+        let integer = split.next()?;
+        let fractional = split.next()?;
+
+        if split.next() != None {
+            return None;
+        }
+
+        let integer = integer.parse::<i128>().ok()?;
+
+        let fractional_len = fractional.len();
+        let fractional = fractional.parse::<u128>().ok()?;
+
+        let fract = Self {
+            num: fractional as i128,
+            denom: 1,
+        } / Self::from((10u128).pow(fractional_len as u32));
+
+        Some(Self::from(integer) + fract)
+    }
 }
 
 fn gcd(a: u128, b: u128) -> u128 {
@@ -178,6 +207,15 @@ where
         Matrix {
             data: rhs.data.into_iter().map(|x| self * x).collect(),
             ..rhs
+        }
+    }
+}
+
+impl<T: TryInto<i128>> From<T> for Rational {
+    fn from(value: T) -> Self {
+        Self {
+            num: value.try_into().ok().expect("Number too big!"),
+            denom: 1,
         }
     }
 }
