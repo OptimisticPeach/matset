@@ -1,159 +1,155 @@
 use std::collections::HashSet;
 
-use crate::{interp::value::Value, typst_ast::TypstAst};
+use crate::{
+    ast::{self, Expr, ExprNode, NodeId},
+    interp::value::Value,
+    typst_ast::IntermediateAST,
+    util::{NameCache, SymbolClass},
+};
 
-type BExprAst = Box<ExprAstNode>;
+use anyhow::{Context, Result, bail};
 
-pub enum ExprAstNode {
-    Constant(Value),
-    Name(String),
-    Sum(Vec<ExprAstNode>),
-    Product(Vec<ExprAstNode>),
-    Neg(BExprAst),
-    Fraction {
-        num: BExprAst,
-        denom: BExprAst,
-    },
-    FunctionApplication {
-        function: String,
-        params: Vec<ExprAstNode>,
-    },
-    Power {
-        base: BExprAst,
-        exponent: BExprAst,
-    },
-    Radical {
-        index: Option<BExprAst>,
-        radicand: BExprAst,
-    },
-    Binomial {
-        upper: BExprAst,
-        lower: Vec<ExprAstNode>,
-    },
-    Factorial(BExprAst),
-    List(Vec<ExprAstNode>),
-    Prime {
-        expr: BExprAst,
-        count: usize,
-    },
+struct ParseContext<'names> {
+    names: &'names mut NameCache,
 }
 
-pub fn parse<'a>(typst_ast: &TypstAst<'a>) -> Result<Option<ExprAstNode>, String> {
-    match typst_ast {
-        TypstAst::Equation { body, .. } => parse(body),
-        TypstAst::Sequence { children } => todo!(),
-        TypstAst::Symbol { text } => Ok(Some(
-            Value::parse(text)
-                .map(ExprAstNode::Constant)
-                .unwrap_or_else(|| ExprAstNode::Name(text.to_string())),
-        )),
-        TypstAst::Text { text } => Ok(Some(
-            Value::parse(text)
-                .map(ExprAstNode::Constant)
-                .unwrap_or_else(|| ExprAstNode::Name(text.to_string())),
-        )),
-        TypstAst::Space => Ok(None),
-        TypstAst::Frac { num, denom } => Ok(Some(ExprAstNode::Fraction {
-            num: parse(num)?.ok_or("Fractions need a numerator!")?.into(),
-            denom: parse(denom)?.ok_or("Fractions need a denominator!")?.into(),
-        })),
-        TypstAst::Attach { base, t, tr, b, .. } => {
-            if let Some(b) = b {
-                if matches!(&**b, TypstAst::Text { .. })
-                    && !matches!(&**base, TypstAst::Text { .. })
-                {
-                    Err("Unexpected subscript!")?;
-                } else if !matches!(&**b, TypstAst::Text { .. }) {
-                    Err("Unexpected expression in subscript!")?;
-                }
-            }
+pub fn parse(ast: &IntermediateAST<'_>, names: &mut NameCache) -> Result<ast::ParsedExpr> {
+    let mut ctx = ParseContext { names };
 
-            let mut base =
-                if let (TypstAst::Text { text: base_text }, Some(TypstAst::Text { text })) =
-                    (&**base, b.as_ref().map(|x| &**x))
-                {
-                    let new_name = format!("{base_text}_{text}");
+    parse_inner(ast, &mut ctx)
+}
 
-                    ExprAstNode::Name(new_name)
-                } else {
-                    parse(base)?.ok_or("Exponents need bases!")?
-                };
+fn parse_inner(ast: &IntermediateAST<'_>, ctx: &mut ParseContext<'_>) -> Result<ast::ParsedExpr> {}
 
-            if let Some(tr) = tr {
-                if let TypstAst::Primes { count } = &**tr {
-                    base = ExprAstNode::Prime {
-                        expr: base.into(),
-                        count: *count,
-                    };
-                } else {
-                    Err("Unexpected object in TR of Attach")?;
-                }
-            }
-
-            if let Some(t) = t {
-                let superscript = parse(t)?.ok_or("Cannot have empty superscript!")?;
-
-                base = ExprAstNode::Power {
-                    base: base.into(),
-                    exponent: superscript.into(),
-                };
-            }
-
-            Ok(Some(base))
-        }
-        TypstAst::LeftRight { body } => {
-            let TypstAst::Sequence { children } = &**body else {
-                Err("Expected Sequence in left/right node")?
+fn parse_variable_ident(
+    lhs_ast: &IntermediateAST<'_>,
+    name_processor: impl FnOnce(String) -> Result<ast::IdentId>,
+) -> Result<ast::IdentId> {
+    match lhs_ast {
+        IntermediateAST::Text {
+            text,
+            class: SymbolClass::Ident,
+        } => name_processor(text.to_string()),
+        IntermediateAST::Subscript { base, subscript } => {
+            let IntermediateAST::Text {
+                text: base_text,
+                class: SymbolClass::Ident,
+            } = &**base
+            else {
+                bail!("Unexpected variable ident!")
             };
 
-            if children.len() < 3 {
-                Err("Left/right node has fewer than three elements, are your parentheses empty?")?
-            }
+            let IntermediateAST::Text {
+                text: subscr_text,
+                class: SymbolClass::Ident | SymbolClass::MixedNumberAlpha | SymbolClass::Number,
+            } = &**subscript
+            else {
+                bail!("Subscript is invalid for {base_text}!")
+            };
 
-            // let [left, inner @ .., right] = &children[..];
+            let new_name = format!("{base_text}_{subscr_text}");
 
-            // let (TypstAst::Text { text: left } | TypstAst::Symbol { text: left }) = left else {
-            //     Err("Unexpected left element in left/right node")?
-            // };
-
-            // let (TypstAst::Text { text: right } | TypstAst::Symbol { text: right }) = right else {
-            //     Err("Unexpected right element in left/right node")?
-            // };
-
-            // if left != "(" || right != ")" {
-            //     Err("Unsupported parentheses!")?
-            // }
-            //
-            todo!()
+            name_processor(new_name)
         }
-        TypstAst::Primes { .. } => Err("Free-floating primes don't make sense!")?,
-        TypstAst::Root { index, radicand } => Ok(Some(ExprAstNode::Radical {
-            index: index
-                .as_ref()
-                .map(|x| parse(x))
-                .transpose()?
-                .flatten()
-                .map(Into::into),
-            radicand: parse(radicand)?.ok_or("Radicals need a radicand!")?.into(),
-        })),
-        TypstAst::Binomial { upper, lower } => Ok(Some(ExprAstNode::Binomial {
-            upper: parse(upper)?
-                .ok_or("Binomials need an upper element!")?
-                .into(),
-            lower: {
-                let result = lower
-                    .iter()
-                    .map(|x| parse(x))
-                    .filter(|x| !matches!(x, Ok(None)))
-                    .collect::<Result<Option<Vec<ExprAstNode>>, String>>()?
-                    .unwrap();
-                if result.len() == 0 {
-                    Err("Binomials need a lower element!")?;
+        _ => bail!("Unexpected variable ident!"),
+    }
+}
+
+fn parse_function_signature(
+    lhs_ast: &[IntermediateAST<'_>],
+    ctx: &mut ParseContext<'_>,
+) -> Result<(ast::IdentId, Vec<ast::IdentId>)> {
+    let [
+        name,
+        IntermediateAST::LeftRight {
+            left,
+            right,
+            children,
+        },
+    ] = lhs_ast
+    else {
+        bail!("Unexpected function signature: {lhs_ast:?}!")
+    };
+
+    if ("(", ")") != (left, right) {
+        bail!("Unexpected parentheses: `{left}` and `{right}`")
+    };
+
+    let name = parse_variable_ident(name, |x| ctx.names.create_global_id(x))?;
+
+    let Some(children) = children else {
+        return Ok((name, vec![]));
+    };
+
+    let children = match &**children {
+        IntermediateAST::Sequence { children } => {
+            let mut params = vec![];
+
+            let mut iter = children.iter();
+
+            let first =
+                parse_variable_ident(iter.next().unwrap(), |x| ctx.names.create_local_id(x))?;
+
+            params.push(first);
+
+            loop {
+                match iter.next() {
+                    None => break,
+                    Some(IntermediateAST::Comma) => {}
+                    Some(x) => bail!("Unexpected symbol in parameters: {x:?}"),
                 }
 
-                result
-            },
-        })),
-        TypstAst::Operator { .. } => unimplemented!(),
+                let name = iter
+                    .next()
+                    .context("Cannot end parameter list with comma")?;
+
+                let name = parse_variable_ident(name, |x| ctx.names.create_local_id(x))?;
+
+                params.push(name);
+            }
+
+            params
+        }
+        x => vec![parse_variable_ident(x, |x| ctx.names.create_local_id(x))?],
+    };
+
+    Ok((name, children))
+}
+
+fn parse_expr(ast: &IntermediateAST<'_>, ctx: &mut ParseContext<'_>) -> Result<Expr> {
+    let mut nodes = Vec::new();
+}
+
+fn parse_ast(
+    ast: &IntermediateAST<'_>,
+    ctx: &mut ParseContext<'_>,
+    nodes: &mut Vec<ExprNode>,
+) -> Result<NodeId> {
+    match ast {
+        IntermediateAST::Sequence { children } => todo!(),
+        IntermediateAST::Comma => bail!("Unexpected comma in expression!"),
+        IntermediateAST::Text { text, class } => todo!(),
+        IntermediateAST::Frac { num, denom } => {
+            let num = parse_ast(num, ctx, nodes)?;
+            let denom = parse_ast(denom, ctx, nodes)?;
+
+            let node = ExprNode::Binary(num, denom, ast::BinaryOp::Div);
+
+            let id = nodes.len();
+
+            nodes.push(node);
+
+            Ok(NodeId(id))
+        }
+        IntermediateAST::Subscript { base, subscript } => todo!(),
+        IntermediateAST::Power { base, power } => todo!(),
+        IntermediateAST::Prime { base, count } => todo!(),
+        IntermediateAST::LeftRight {
+            left,
+            right,
+            children,
+        } => todo!(),
+        IntermediateAST::Root { index, radicand } => todo!(),
+        IntermediateAST::Binomial { upper, lower } => todo!(),
     }
 }

@@ -1,6 +1,9 @@
 use std::fmt::{Display, Write};
 
+use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
+
+use crate::util::{self, SymbolClass};
 
 type BAst<'a> = Box<TypstAst<'a>>;
 
@@ -142,6 +145,231 @@ impl<'a> TypstAst<'a> {
             TypstAst::Symbol { text } => write!(out, "{text}"),
         }
     }
+
+    pub fn get_intermediate(&self) -> Result<Option<IntermediateAST<'a>>> {
+        match self {
+            TypstAst::Equation { body, .. } => body.get_intermediate(),
+            TypstAst::Sequence { children } => intermediate_sequence(children),
+            TypstAst::Text { text } | TypstAst::Symbol { text } => {
+                let text = text.trim();
+
+                if !text.is_empty() {
+                    if text == "," {
+                        Ok(Some(IntermediateAST::Comma))
+                    } else {
+                        Ok(Some(IntermediateAST::Text {
+                            text,
+                            class: util::is_reserved(text),
+                        }))
+                    }
+                } else {
+                    Ok(None)
+                }
+            }
+            TypstAst::Space => Ok(None),
+            TypstAst::Frac { num, denom } => {
+                let num = num
+                    .get_intermediate()?
+                    .context("Fractions must have non-empty numerators!")?;
+                let denom = denom
+                    .get_intermediate()?
+                    .context("Fractions must have non-empty denominators!")?;
+
+                Ok(Some(IntermediateAST::Frac {
+                    num: num.into(),
+                    denom: denom.into(),
+                }))
+            }
+            TypstAst::Attach {
+                base,
+                t,
+                tr,
+                br,
+                b,
+                bl,
+                tl,
+            } => {
+                if bl.is_some() || tl.is_some() || br.is_some() {
+                    bail!("Unexpected Attach values in bl, tl, or br!");
+                }
+
+                let mut base = base
+                    .get_intermediate()?
+                    .context("Attach must have a base!")?;
+
+                // Precedence: subscript, prime, power
+
+                if let Some(b) = b
+                    .as_ref()
+                    .map(|x| x.get_intermediate())
+                    .transpose()?
+                    .flatten()
+                {
+                    base = IntermediateAST::Subscript {
+                        base: base.into(),
+                        subscript: b.into(),
+                    };
+                }
+
+                if let Some(tr) = tr {
+                    match &**tr {
+                        TypstAst::Primes { count } => {
+                            base = IntermediateAST::Prime {
+                                base: base.into(),
+                                count: *count,
+                            }
+                        }
+                        _ => bail!("Unexpected value in tr of attach!"),
+                    }
+                }
+
+                if let Some(t) = t
+                    .as_ref()
+                    .map(|x| x.get_intermediate())
+                    .transpose()?
+                    .flatten()
+                {
+                    base = IntermediateAST::Power {
+                        base: base.into(),
+                        power: t.into(),
+                    };
+                }
+
+                Ok(Some(base))
+            }
+            TypstAst::LeftRight { body } => {
+                let body = match &**body {
+                    TypstAst::Sequence { children } => &**children,
+                    _ => bail!("Unexpected value in lr!"),
+                };
+
+                let [left, inner @ .., right] = body else {
+                    bail!("lr must have at least two elements in it!")
+                };
+
+                let Ok(Some(IntermediateAST::Text { text: left, .. })) = left.get_intermediate()
+                else {
+                    bail!("Unexpected left side on lr!")
+                };
+
+                let Ok(Some(IntermediateAST::Text { text: right, .. })) = right.get_intermediate()
+                else {
+                    bail!("Unexpected left side on lr!")
+                };
+
+                Ok(Some(IntermediateAST::LeftRight {
+                    left,
+                    right,
+                    children: intermediate_sequence(inner)?.map(Box::new),
+                }))
+            }
+            TypstAst::Primes { .. } => bail!("Unexpected free-floating primes!"),
+            TypstAst::Root { index, radicand } => Ok(Some(IntermediateAST::Root {
+                index: index
+                    .as_ref()
+                    .map(|x| x.get_intermediate())
+                    .transpose()?
+                    .flatten()
+                    .map(Box::new),
+                radicand: radicand
+                    .get_intermediate()?
+                    .map(Box::new)
+                    .context("Cannot have empty radicand!")?,
+            })),
+            TypstAst::Binomial { upper, lower } => {
+                let upper = upper
+                    .get_intermediate()?
+                    .map(Box::new)
+                    .context("Binomials need a top part!")?;
+
+                if lower.len() != 1 {
+                    bail!("Lower part of binomials must be precisely one element!")
+                }
+
+                let lower = lower[0]
+                    .get_intermediate()?
+                    .map(Box::new)
+                    .context("Binomials need a bottom part!")?;
+
+                Ok(Some(IntermediateAST::Binomial { upper, lower }))
+            }
+            TypstAst::Operator { text, .. } => {
+                let text @ IntermediateAST::Text { .. } = text
+                    .get_intermediate()?
+                    .context("Operators cannot be empty!")?
+                else {
+                    bail!("Unexpected object in operator context!")
+                };
+
+                Ok(Some(text))
+            }
+        }
+    }
+}
+
+fn intermediate_sequence<'a>(seq: &[TypstAst<'a>]) -> Result<Option<IntermediateAST<'a>>> {
+    let mut new_children = Vec::with_capacity(seq.len() / 2);
+
+    for child in seq {
+        let intermediate = child.get_intermediate()?;
+
+        if let Some(int) = intermediate {
+            new_children.push(int);
+        }
+    }
+
+    if new_children.len() > 1 {
+        Ok(Some(IntermediateAST::Sequence {
+            children: new_children,
+        }))
+    } else if new_children.len() == 1 {
+        Ok(Some(new_children.pop().unwrap()))
+    } else {
+        Ok(None)
+    }
+}
+
+type IAst<'a> = Box<IntermediateAST<'a>>;
+
+#[derive(Debug)]
+pub enum IntermediateAST<'a> {
+    Sequence {
+        children: Vec<IntermediateAST<'a>>,
+    },
+    Comma,
+    Text {
+        text: &'a str,
+        class: SymbolClass,
+    },
+    Frac {
+        num: IAst<'a>,
+        denom: IAst<'a>,
+    },
+    Subscript {
+        base: IAst<'a>,
+        subscript: IAst<'a>,
+    },
+    Power {
+        base: IAst<'a>,
+        power: IAst<'a>,
+    },
+    Prime {
+        base: IAst<'a>,
+        count: usize,
+    },
+    LeftRight {
+        left: &'a str,
+        right: &'a str,
+        children: Option<IAst<'a>>,
+    },
+    Root {
+        index: Option<IAst<'a>>,
+        radicand: IAst<'a>,
+    },
+    Binomial {
+        upper: IAst<'a>,
+        lower: IAst<'a>,
+    },
 }
 
 #[cfg(test)]
