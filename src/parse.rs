@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use crate::{
-    ast::{self, Expr, ExprNode, NodeId},
+    ast::{self, Expr, ExprNode, IdentId, NodeId},
     interp::value::Value,
     typst_ast::IntermediateAST,
     util::{NameCache, SymbolClass},
@@ -120,36 +120,94 @@ fn parse_expr(ast: &IntermediateAST<'_>, ctx: &mut ParseContext<'_>) -> Result<E
     let mut nodes = Vec::new();
 }
 
-fn parse_ast(
-    ast: &IntermediateAST<'_>,
+fn parse_base_term(
+    ast: &mut &[IntermediateAST<'_>],
     ctx: &mut ParseContext<'_>,
     nodes: &mut Vec<ExprNode>,
 ) -> Result<NodeId> {
-    match ast {
+    let [first, rest @ ..] = ast else {
+        bail!("Unexpected end of token stream!")
+    };
+
+    match first {
         IntermediateAST::Sequence { children } => todo!(),
         IntermediateAST::Comma => bail!("Unexpected comma in expression!"),
-        IntermediateAST::Text { text, class } => todo!(),
+        IntermediateAST::Text { text, class } => match class {
+            SymbolClass::GreekOperator => unimplemented!(),
+            SymbolClass::BuiltinFunction => unimplemented!(),
+            SymbolClass::UnusedSymbol => bail!("Unrecognized symbol: `{text}`"),
+            SymbolClass::Ident => {
+                let ident = parse_variable_ident(first, |x| ctx.names.get_existing(&x))?;
+                Ok(make_ident(ident, nodes))
+            }
+            SymbolClass::Number => todo!(),
+            SymbolClass::MixedNumberAlpha => todo!(),
+            SymbolClass::Constant => todo!(),
+        },
         IntermediateAST::Frac { num, denom } => {
-            let num = parse_ast(num, ctx, nodes)?;
-            let denom = parse_ast(denom, ctx, nodes)?;
-
-            let node = ExprNode::Binary(num, denom, ast::BinaryOp::Div);
-
-            let id = nodes.len();
-
-            nodes.push(node);
-
-            Ok(NodeId(id))
+            parse_binary(ast::BinaryOp::Div, num, denom, ctx, nodes)
         }
         IntermediateAST::Subscript { base, subscript } => todo!(),
-        IntermediateAST::Power { base, power } => todo!(),
-        IntermediateAST::Prime { base, count } => todo!(),
+        IntermediateAST::Power { base, power } => {
+            parse_binary(ast::BinaryOp::Pow, base, power, ctx, nodes)
+        }
+        IntermediateAST::Prime { .. } => unimplemented!(),
         IntermediateAST::LeftRight {
             left,
             right,
             children,
         } => todo!(),
-        IntermediateAST::Root { index, radicand } => todo!(),
-        IntermediateAST::Binomial { upper, lower } => todo!(),
+        IntermediateAST::Root { index, radicand } => {
+            if let Some(index) = index {
+                parse_binary(ast::BinaryOp::NthRoot, index, radicand, ctx, nodes)
+            } else {
+                parse_unary(ast::UnaryOp::Sqrt, radicand, ctx, nodes)
+            }
+        }
+        IntermediateAST::Binomial { .. } => unimplemented!(),
     }
+}
+
+fn parse_binary(
+    op: ast::BinaryOp,
+    lhs: &IntermediateAST<'_>,
+    rhs: &IntermediateAST<'_>,
+    ctx: &mut ParseContext<'_>,
+    nodes: &mut Vec<ExprNode>,
+) -> Result<NodeId> {
+    let lhs = parse_base_term(&mut std::slice::from_ref(lhs), ctx, nodes)?;
+    let rhs = parse_base_term(&mut std::slice::from_ref(rhs), ctx, nodes)?;
+
+    let node = ExprNode::Binary(lhs, rhs, op);
+
+    let id = nodes.len();
+
+    nodes.push(node);
+
+    Ok(NodeId(id))
+}
+
+fn parse_unary(
+    op: ast::UnaryOp,
+    ast: &IntermediateAST<'_>,
+    ctx: &mut ParseContext<'_>,
+    nodes: &mut Vec<ExprNode>,
+) -> Result<NodeId> {
+    let ast = parse_base_term(&mut std::slice::from_ref(ast), ctx, nodes)?;
+
+    let node = ExprNode::Unary(ast, op);
+
+    let id = nodes.len();
+
+    nodes.push(node);
+
+    Ok(NodeId(id))
+}
+
+fn make_ident(id: IdentId, nodes: &mut Vec<ExprNode>) -> NodeId {
+    let len = nodes.len();
+
+    nodes.push(ExprNode::Ident(id));
+
+    NodeId(len)
 }
