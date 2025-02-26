@@ -1,11 +1,28 @@
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use std::{
+    fmt::Display,
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
+};
+
+use serde::{Deserialize, Serialize};
 
 use super::{Field, Ring, complex::Complex, mat::Matrix};
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Rational {
     pub(crate) num: i128,
     pub(crate) denom: u128,
+}
+
+impl Display for Rational {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.num == 0 {
+            write!(f, "0")
+        } else if self.denom == 1 {
+            write!(f, "{}", self.num)
+        } else {
+            write!(f, "{}/{}", self.num, self.denom)
+        }
+    }
 }
 
 impl Rational {

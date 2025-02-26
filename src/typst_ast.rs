@@ -314,7 +314,11 @@ fn intermediate_sequence<'a>(seq: &[TypstAst<'a>]) -> Result<Option<Intermediate
         let intermediate = child.get_intermediate()?;
 
         if let Some(int) = intermediate {
-            new_children.push(int);
+            if let IntermediateAST::Sequence { children } = int {
+                new_children.extend(children.into_iter());
+            } else {
+                new_children.push(int);
+            }
         }
     }
 

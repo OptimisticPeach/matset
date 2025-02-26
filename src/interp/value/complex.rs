@@ -1,9 +1,12 @@
+use serde::{Deserialize, Serialize};
+
 use super::mat::Matrix;
 use super::rational::Rational;
 use super::{Field, Ring};
+use std::fmt::Display;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Complex {
     real: Rational,
     imag: Rational,
@@ -31,6 +34,22 @@ impl Complex {
         }
 
         None
+    }
+}
+
+impl Display for Complex {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if *self == Self::ZERO {
+            return write!(f, "0");
+        }
+
+        if self.real == Rational::ZERO {
+            write!(f, "{}i", self.imag)
+        } else if self.imag == Rational::ZERO {
+            write!(f, "{}", self.real)
+        } else {
+            write!(f, "{} + {}i", self.real, self.imag)
+        }
     }
 }
 

@@ -4,10 +4,11 @@ use std::{
 };
 
 use anyhow::{Context, Result, bail};
+use serde::{Deserialize, Serialize};
 
 use crate::ast::IdentId;
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize, Debug)]
 pub struct NameCache {
     names: HashMap<String, usize>,
     globals: HashSet<usize>,
@@ -73,7 +74,7 @@ impl NameCache {
                     )
                 }
 
-                unreachable!("Id not registered to either all_locals nor globals")
+                bail!("Id not registered to either all_locals nor globals")
             }
             std::collections::hash_map::Entry::Vacant(x) => {
                 let new_id = self.count;
@@ -102,6 +103,7 @@ impl NameCache {
 pub enum SymbolClass {
     GreekOperator,
     BuiltinFunction,
+    InfixOperator,
     Constant,
     UnusedSymbol,
     Ident,
@@ -145,6 +147,12 @@ pub fn is_reserved(s: &str) -> SymbolClass {
         ("arcsch", SymbolClass::BuiltinFunction),
         ("arsech", SymbolClass::BuiltinFunction),
         ("arcoth", SymbolClass::BuiltinFunction),
+        ("+", SymbolClass::InfixOperator),
+        ("−", SymbolClass::InfixOperator),
+        ("-", SymbolClass::InfixOperator),
+        ("*", SymbolClass::InfixOperator),
+        ("⋅", SymbolClass::InfixOperator),
+        ("∗", SymbolClass::InfixOperator),
     ];
 
     let data = DATA.get_or_init(|| RESERVED_SYMBOLS.iter().copied().collect());

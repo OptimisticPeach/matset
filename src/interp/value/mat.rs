@@ -1,8 +1,10 @@
 use std::ops::{Add, AddAssign, Index, Mul, MulAssign, Neg, Sub, SubAssign};
 
+use serde::{Deserialize, Serialize};
+
 use super::{Ring, complex::Complex, rational::Rational};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Matrix<T: Ring + Clone> {
     pub rows: u8,
     pub cols: u8,

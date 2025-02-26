@@ -1,8 +1,12 @@
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use std::{
+    fmt::Display,
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
+};
 
 use complex::Complex;
 use mat::Matrix;
 use rational::Rational;
+use serde::{Deserialize, Serialize};
 
 pub mod complex;
 pub mod mat;
@@ -29,11 +33,21 @@ pub trait Field: Ring + Div<Self, Output = Self> + DivAssign<Self> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Value {
     Rational(Rational),
     Complex(Complex),
     Mat(Matrix<Complex>),
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Rational(rational) => write!(f, "{rational}"),
+            Value::Complex(complex) => write!(f, "{complex}"),
+            Value::Mat(matrix) => todo!(),
+        }
+    }
 }
 
 impl Value {
