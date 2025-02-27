@@ -138,22 +138,17 @@ pub enum ParsedExpr {
     Function(FunctionDef),
     /// `x = 2`
     Variable(VariableDef),
-    /// `f(2) + 2`
-    Evaluate(Expr),
-    Empty,
 }
 
 impl std::fmt::Display for ParsedExpr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Evaluate(e) => write!(f, "{e}"),
             Self::Function(FunctionDef { name, params, body }) => {
                 write!(f, "{name:?}({params:?}) = {body}")
             }
             Self::Variable(VariableDef { name, value }) => {
                 write!(f, "{name:?} = {value}")
             }
-            Self::Empty => Ok(()),
         }
     }
 }

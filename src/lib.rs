@@ -1,5 +1,5 @@
 use anyhow::Context;
-use ast::ParsedExpr;
+use ast::{Expr, ParsedExpr};
 use interp::{EvalContext, eval};
 use util::NameCache;
 use wasm_minimal_protocol::*;
@@ -20,7 +20,20 @@ fn parse_eqn_inner(buf: &[u8], cache: &mut NameCache) -> anyhow::Result<ParsedEx
         .get_intermediate()?
         .context("Empty Intermediate AST!")?;
 
-    let ast = parse::parse(&intermediate, cache)?;
+    let ast = parse::parse_statement(&intermediate, cache)?;
+
+    Ok(ast)
+}
+
+fn parse_expr_inner(buf: &[u8], cache: &mut NameCache) -> anyhow::Result<Expr> {
+    cache.clear_current_locals();
+    let parsed = serde_json::from_slice::<typst_ast::TypstAst>(buf)?;
+
+    let intermediate = parsed
+        .get_intermediate()?
+        .context("Empty Intermediate AST!")?;
+
+    let ast = parse::parse_expr(&intermediate, cache)?;
 
     Ok(ast)
 }
@@ -51,13 +64,9 @@ pub fn evaluate(existing: &[u8], expr: &[u8]) -> Result<Vec<u8>, String> {
         bincode::deserialize(existing).map_err(|x| x.to_string())?
     };
 
-    let expr = match parse_eqn_inner(expr, &mut existing.idents) {
+    let expr = match parse_expr_inner(expr, &mut existing.idents) {
         Ok(x) => x,
         Err(e) => Err(e.to_string())?,
-    };
-
-    let ParsedExpr::Evaluate(expr) = expr else {
-        Err("This is not an expression!")?
     };
 
     let result = match eval::eval(&expr, &existing) {
@@ -100,5 +109,11 @@ mod tests {
 
         let expr_bytes = include_bytes!("./expr_test.json");
         let _reply = super::evaluate(&reply, expr_bytes).unwrap();
+    }
+
+    #[test]
+    fn decimals() {
+        let eval_bytes = include_bytes!("./decimal_test.json");
+        let _reply = super::evaluate(&[], eval_bytes).unwrap();
     }
 }

@@ -74,7 +74,9 @@ impl NameCache {
                     )
                 }
 
-                bail!("Id not registered to either all_locals nor globals")
+                self.globals.insert(*id);
+
+                *id
             }
             std::collections::hash_map::Entry::Vacant(x) => {
                 let new_id = self.count;
@@ -96,6 +98,18 @@ impl NameCache {
             .get(s)
             .with_context(|| format!("Name {s} does not exist!"))
             .map(|&x| IdentId(x))
+    }
+
+    pub fn make_use_of(&mut self, s: String) -> Result<IdentId> {
+        let id = self.names.entry(s).or_insert_with(|| {
+            let id = self.count;
+
+            self.count += 1;
+
+            id
+        });
+
+        Ok(IdentId(*id))
     }
 }
 
@@ -123,6 +137,7 @@ pub fn is_reserved(s: &str) -> SymbolClass {
         ("π", SymbolClass::Constant),
         ("τ", SymbolClass::Constant),
         ("e", SymbolClass::Constant),
+        ("i", SymbolClass::Constant),
         ("sin", SymbolClass::BuiltinFunction),
         ("cos", SymbolClass::BuiltinFunction),
         ("tan", SymbolClass::BuiltinFunction),
@@ -162,7 +177,7 @@ pub fn is_reserved(s: &str) -> SymbolClass {
     }
 
     for c in s.chars() {
-        if !c.is_alphanumeric() && c != '_' {
+        if !c.is_alphanumeric() && c != '_' && c != '.' {
             return SymbolClass::UnusedSymbol;
         }
     }
@@ -172,7 +187,7 @@ pub fn is_reserved(s: &str) -> SymbolClass {
     let first = chars.next().unwrap();
 
     if first.is_ascii_digit() {
-        if chars.any(|x| !x.is_ascii_digit()) {
+        if chars.any(|x| !x.is_ascii_digit() && x != '.') {
             SymbolClass::MixedNumberAlpha
         } else {
             SymbolClass::Number

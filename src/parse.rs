@@ -11,10 +11,19 @@ struct ParseContext<'names> {
     names: &'names mut NameCache,
 }
 
-pub fn parse(ast: &IntermediateAST<'_>, names: &mut NameCache) -> Result<ast::ParsedExpr> {
+pub fn parse_statement(
+    ast: &IntermediateAST<'_>,
+    names: &mut NameCache,
+) -> Result<ast::ParsedExpr> {
     let mut ctx = ParseContext { names };
 
     parse_inner(ast, &mut ctx)
+}
+
+pub fn parse_expr(ast: &IntermediateAST<'_>, names: &mut NameCache) -> Result<Expr> {
+    let mut ctx = ParseContext { names };
+
+    parse_expr_inner(std::slice::from_ref(ast), &mut ctx)
 }
 
 fn parse_inner(ast: &IntermediateAST<'_>, ctx: &mut ParseContext<'_>) -> Result<ast::ParsedExpr> {
@@ -24,7 +33,7 @@ fn parse_inner(ast: &IntermediateAST<'_>, ctx: &mut ParseContext<'_>) -> Result<
             [name, IntermediateAST::Text { text: "≔", .. }, rest @ ..] => {
                 let ident = parse_variable_ident(name, |x| ctx.names.create_global_id(x))?;
 
-                let expr = parse_expr(rest, ctx)?;
+                let expr = parse_expr_inner(rest, ctx)?;
 
                 Ok(ast::ParsedExpr::Variable(VariableDef {
                     name: ident,
@@ -40,30 +49,17 @@ fn parse_inner(ast: &IntermediateAST<'_>, ctx: &mut ParseContext<'_>) -> Result<
             ] => {
                 let (name, params) = parse_function_signature(&children[..2], ctx)?;
 
-                let expr = parse_expr(rest, ctx)?;
+                let expr = parse_expr_inner(rest, ctx)?;
 
                 Ok(ast::ParsedExpr::Function(FunctionDef {
                     name,
                     params,
                     body: expr,
                 }))
-
-                // Ok(ast::ParsedExpr::Function(FunctionDef {
-                //     name,
-                //     params,
-                //     body: Expr {
-                //         nodes: vec![],
-                //         root: NodeId(0),
-                //     },
-                // }))
             }
-            expr => Ok(ast::ParsedExpr::Evaluate(parse_expr(expr, ctx)?)),
+            _ => bail!("Unexpected expression in statement position!"),
         },
-        _ => {
-            let expr = parse_expr(std::slice::from_ref(ast), ctx)?;
-
-            Ok(ast::ParsedExpr::Evaluate(expr))
-        }
+        _ => bail!("Unexpected expression in statement position!"),
     }
 }
 
@@ -168,7 +164,7 @@ fn parse_function_signature(
     Ok((name, children))
 }
 
-fn parse_expr(ast: &[IntermediateAST<'_>], ctx: &mut ParseContext<'_>) -> Result<Expr> {
+fn parse_expr_inner(ast: &[IntermediateAST<'_>], ctx: &mut ParseContext<'_>) -> Result<Expr> {
     let mut nodes = Vec::new();
 
     let root = parse_sequence(ast, ctx, &mut nodes)?;
@@ -181,9 +177,25 @@ fn parse_impl_prod(
     ctx: &mut ParseContext<'_>,
     nodes: &mut Vec<ExprNode>,
 ) -> Result<NodeId> {
-    let mut term = parse_base_term(ast, ctx, nodes)?;
+    let [first, rest @ ..] = ast else {
+        bail!("Unexpected end of ast stream!")
+    };
 
-    while let Ok(next) = parse_base_term(ast, ctx, nodes) {
+    let mut rest = rest;
+
+    let mut term = parse_base_term(first, ctx, nodes)?;
+
+    loop {
+        let [second, new_rest @ ..] = rest else {
+            break;
+        };
+
+        let Ok(next) = parse_base_term(second, ctx, nodes) else {
+            break;
+        };
+
+        rest = new_rest;
+
         if let ExprNode::Parens {
             prefix: prefix @ None,
             ..
@@ -199,6 +211,8 @@ fn parse_impl_prod(
             term = NodeId(id);
         }
     }
+
+    *ast = rest;
 
     Ok(term)
 }
@@ -272,13 +286,16 @@ fn parse_sum(
     ctx: &mut ParseContext<'_>,
     nodes: &mut Vec<ExprNode>,
 ) -> Result<NodeId> {
+    println!("Got here!");
     let mut term = parse_neg(ast, ctx, nodes)?;
+    println!("Got here 2 : {ast:?}!");
 
     while let [plus_minus, rest @ ..] = ast {
         let next_term = match plus_minus {
             IntermediateAST::Text { text: "+", .. } => {
                 *ast = rest;
 
+                println!("Parsing plus: {ast:?}");
                 parse_neg(ast, ctx, nodes)?
             }
             IntermediateAST::Text {
@@ -293,6 +310,8 @@ fn parse_sum(
 
         term = NodeId(id);
     }
+
+    println!("Got here 3!");
 
     Ok(term)
 }
@@ -310,17 +329,11 @@ fn parse_sequence(
 }
 
 fn parse_base_term(
-    ast: &mut &[IntermediateAST<'_>],
+    ast: &IntermediateAST<'_>,
     ctx: &mut ParseContext<'_>,
     nodes: &mut Vec<ExprNode>,
 ) -> Result<NodeId> {
-    let [first, rest @ ..] = ast else {
-        bail!("Unexpected end of token stream!")
-    };
-
-    let mut rest = rest;
-
-    let result = match first {
+    match ast {
         IntermediateAST::Sequence { children } => parse_sequence(children, ctx, nodes),
         IntermediateAST::Comma => bail!("Unexpected comma in expression!"),
         IntermediateAST::Text { text, class } => match class {
@@ -328,64 +341,33 @@ fn parse_base_term(
             SymbolClass::UnusedSymbol => bail!("Unrecognized symbol: `{text}`"),
             SymbolClass::InfixOperator => bail!("Unexpected infix operator `{text}`"),
             SymbolClass::BuiltinFunction => {
-                let ident = parse_variable_ident(first, |x| ctx.names.get_existing(&x))?;
+                let ident = parse_variable_ident(ast, |x| ctx.names.make_use_of(x))?;
                 let ident = make_ident(ident, nodes);
-                let [
-                    IntermediateAST::LeftRight {
-                        left: "(",
-                        right: ")",
-                        children,
-                    },
-                    new_rest @ ..,
-                ] = rest
-                else {
-                    bail!("Function {text} needs parameters!")
-                };
 
-                rest = new_rest;
-
-                let params = if let Some(children) = children {
-                    match &**children {
-                        IntermediateAST::Sequence { children } => {
-                            parse_comma_separated(children, |x| parse_sequence(x, ctx, nodes))?
-                        }
-                        _ => vec![parse_base_term(
-                            &mut std::slice::from_ref(children),
-                            ctx,
-                            nodes,
-                        )?],
-                    }
-                } else {
-                    vec![]
-                };
-
-                let node = ExprNode::Parens {
-                    prefix: Some(ident),
-                    args: params,
-                };
-
-                let id = nodes.len();
-
-                nodes.push(node);
-
-                Ok(NodeId(id))
+                Ok(ident)
             }
             SymbolClass::Ident | SymbolClass::Number => {
                 if let Some(val) = Value::parse(text) {
                     Ok(make_const(val, nodes))
                 } else {
-                    let ident = parse_variable_ident(first, |x| ctx.names.get_existing(&x))?;
+                    let ident = parse_variable_ident(ast, |x| ctx.names.make_use_of(x))?;
                     Ok(make_ident(ident, nodes))
                 }
             }
             SymbolClass::MixedNumberAlpha => unimplemented!(),
-            SymbolClass::Constant => unimplemented!(),
+            SymbolClass::Constant => {
+                if let Some(val) = Value::parse(text) {
+                    Ok(make_const(val, nodes))
+                } else {
+                    unimplemented!()
+                }
+            }
         },
         IntermediateAST::Frac { num, denom } => {
             parse_binary(ast::BinaryOp::Div, num, denom, ctx, nodes)
         }
         IntermediateAST::Subscript { .. } => {
-            let ident = parse_variable_ident(first, |x| ctx.names.get_existing(&x))?;
+            let ident = parse_variable_ident(ast, |x| ctx.names.make_use_of(x))?;
             Ok(make_ident(ident, nodes))
         }
         IntermediateAST::Power { base, power } => {
@@ -410,9 +392,9 @@ fn parse_base_term(
                     parse_comma_separated(children, |x| parse_sequence(x, ctx, nodes))?
                 }
                 _ => {
-                    let mut children = std::slice::from_ref(&**children);
+                    let children = std::slice::from_ref(&**children);
 
-                    vec![parse_base_term(&mut children, ctx, nodes)?]
+                    vec![parse_sequence(children, ctx, nodes)?]
                 }
             };
 
@@ -435,11 +417,7 @@ fn parse_base_term(
             }
         }
         IntermediateAST::Binomial { .. } => unimplemented!(),
-    };
-
-    *ast = rest;
-
-    result
+    }
 }
 
 fn parse_binary(
@@ -449,8 +427,8 @@ fn parse_binary(
     ctx: &mut ParseContext<'_>,
     nodes: &mut Vec<ExprNode>,
 ) -> Result<NodeId> {
-    let lhs = parse_base_term(&mut std::slice::from_ref(lhs), ctx, nodes)?;
-    let rhs = parse_base_term(&mut std::slice::from_ref(rhs), ctx, nodes)?;
+    let lhs = parse_base_term(lhs, ctx, nodes)?;
+    let rhs = parse_base_term(rhs, ctx, nodes)?;
 
     let node = ExprNode::Binary(lhs, rhs, op);
 
@@ -467,7 +445,7 @@ fn parse_unary(
     ctx: &mut ParseContext<'_>,
     nodes: &mut Vec<ExprNode>,
 ) -> Result<NodeId> {
-    let ast = parse_base_term(&mut std::slice::from_ref(ast), ctx, nodes)?;
+    let ast = parse_base_term(ast, ctx, nodes)?;
 
     let node = ExprNode::Unary(ast, op);
 

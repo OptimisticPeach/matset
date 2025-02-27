@@ -1,10 +1,9 @@
 use std::{collections::HashMap, fmt::Display};
 
 use serde::{Deserialize, Serialize};
-use value::Value;
 
 use crate::{
-    ast::{Expr, FunctionDef, IdentId, ParsedExpr, VariableDef},
+    ast::{FunctionDef, IdentId, ParsedExpr, VariableDef},
     util::NameCache,
 };
 
@@ -41,8 +40,6 @@ impl EvalContext {
             ParsedExpr::Variable(variable_def) => {
                 self.variables.insert(variable_def.name, variable_def);
             }
-            ParsedExpr::Evaluate(_) => {}
-            ParsedExpr::Empty => {}
         }
     }
 }
