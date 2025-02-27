@@ -1,9 +1,10 @@
 use std::{collections::HashMap, fmt::Display};
 
 use serde::{Deserialize, Serialize};
+use value::Value;
 
 use crate::{
-    ast::{FunctionDef, IdentId, ParsedExpr, VariableDef},
+    ast::{Expr, FunctionDef, IdentId, ParsedExpr, VariableDef},
     util::NameCache,
 };
 

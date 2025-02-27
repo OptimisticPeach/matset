@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::interp::value::Value;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct NodeId(pub usize);
 
 #[derive(Debug, Serialize, Deserialize)]

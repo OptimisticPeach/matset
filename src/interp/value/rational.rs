@@ -60,21 +60,16 @@ impl Rational {
     }
 }
 
-fn gcd(a: u128, b: u128) -> u128 {
-    let mut old_q = 0;
+fn gcd(mut a: u128, mut b: u128) -> u128 {
+    while b != 0 {
+        let t = b;
 
-    let mut q = a;
-    let mut r = b;
+        b = a % b;
 
-    while r != 0 {
-        old_q = q;
-
-        let modulo = q % r;
-        q = r;
-        r = modulo;
+        a = t;
     }
 
-    old_q
+    a
 }
 
 impl Add for Rational {

@@ -1,0 +1,1 @@
+{"func":"equation","block":true,"body":{"func":"sequence","children":[{"func":"symbol","text":"a"},{"func":"lr","body":{"func":"sequence","children":[{"func":"symbol","text":"("},{"func":"text","text":"5"},{"func":"symbol","text":")"}]}}]}}

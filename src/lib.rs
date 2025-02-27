@@ -1,6 +1,6 @@
 use anyhow::Context;
 use ast::ParsedExpr;
-use interp::EvalContext;
+use interp::{EvalContext, eval};
 use util::NameCache;
 use wasm_minimal_protocol::*;
 
@@ -44,6 +44,33 @@ pub fn insert(existing: &[u8], eqn: &[u8]) -> Result<Vec<u8>, String> {
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_func)]
+pub fn evaluate(existing: &[u8], expr: &[u8]) -> Result<Vec<u8>, String> {
+    let mut existing = if let [] = existing {
+        EvalContext::default()
+    } else {
+        bincode::deserialize(existing).map_err(|x| x.to_string())?
+    };
+
+    let expr = match parse_eqn_inner(expr, &mut existing.idents) {
+        Ok(x) => x,
+        Err(e) => Err(e.to_string())?,
+    };
+
+    let ParsedExpr::Evaluate(expr) = expr else {
+        Err("This is not an expression!")?
+    };
+
+    let result = match eval::eval(&expr, &existing) {
+        Ok(x) => x,
+        Err(e) => Err(e.to_string())?,
+    };
+
+    let s = format!("{result}");
+
+    Ok(s.into())
+}
+
+#[cfg_attr(target_arch = "wasm32", wasm_func)]
 pub fn debug_ctx(ctx: &[u8]) -> Result<Vec<u8>, String> {
     let existing = if let [] = ctx {
         EvalContext::default()
@@ -64,5 +91,14 @@ mod tests {
     fn parse_basic_func() {
         let bytes = include_bytes!("./function_def.json");
         parse_eqn_inner(&bytes[..], &mut NameCache::default()).unwrap();
+    }
+
+    #[test]
+    fn basic_eval() {
+        let func_bytes = include_bytes!("./function_def.json");
+        let reply = super::insert(&[], func_bytes).unwrap();
+
+        let expr_bytes = include_bytes!("./expr_test.json");
+        let _reply = super::evaluate(&reply, expr_bytes).unwrap();
     }
 }
