@@ -417,6 +417,36 @@ fn parse_base_term(
             }
         }
         IntermediateAST::Binomial { .. } => unimplemented!(),
+        IntermediateAST::Matrix { rows } => {
+            if rows.len() == 0 {
+                bail!("Cannot have empty matrix!")
+            }
+
+            if rows.iter().any(|x| x.len() != rows[0].len()) {
+                bail!("Rows of matrix must all have same length!")
+            }
+
+            let col_n = rows[0].len();
+            let row_n = rows.len();
+
+            let mut elems = Vec::with_capacity(col_n * row_n);
+
+            for c in 0..col_n {
+                for r in 0..row_n {
+                    elems.push(parse_base_term(&rows[r][c], ctx, nodes)?)
+                }
+            }
+
+            let id = nodes.len();
+
+            nodes.push(ExprNode::Matrix {
+                rows: row_n,
+                cols: col_n,
+                elems,
+            });
+
+            Ok(NodeId(id))
+        }
     }
 }
 

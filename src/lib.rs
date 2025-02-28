@@ -116,4 +116,10 @@ mod tests {
         let eval_bytes = include_bytes!("./decimal_test.json");
         let _reply = super::evaluate(&[], eval_bytes).unwrap();
     }
+
+    #[test]
+    fn matrix() {
+        let eval_bytes = include_bytes!("./mat_test.json");
+        let _reply = super::evaluate(&[], eval_bytes).unwrap();
+    }
 }

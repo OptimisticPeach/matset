@@ -1,4 +1,7 @@
-use std::ops::{Add, AddAssign, Index, Mul, MulAssign, Neg, Sub, SubAssign};
+use std::{
+    fmt::Display,
+    ops::{Add, AddAssign, Index, Mul, MulAssign, Neg, Sub, SubAssign},
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -11,6 +14,29 @@ pub struct Matrix<T: Ring + Clone> {
 
     /// Data is arranged as [[T; rows]; cols], i.e. column major.
     pub data: Vec<T>,
+}
+
+impl<T: Ring + Clone + Display> Display for Matrix<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "(")?;
+
+        let (rows, cols) = (self.rows as usize, self.cols as usize);
+
+        for row in 0..rows {
+            for col in 0..cols {
+                write!(f, "{}", &self.data[col * rows + row])?;
+                if col != cols - 1 {
+                    write!(f, ", ")?;
+                }
+            }
+
+            if row != rows - 1 {
+                write!(f, "; ")?;
+            }
+        }
+
+        write!(f, ")")
+    }
 }
 
 impl<T: Ring + Clone> Default for Matrix<T> {

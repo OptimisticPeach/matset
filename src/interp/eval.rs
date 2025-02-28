@@ -119,5 +119,24 @@ fn eval_inner(
                 eval_inner(nodes, *arg, ctx, locals)
             }
         }
+        ExprNode::Matrix { rows, cols, elems } => {
+            let new_elems = elems
+                .iter()
+                .map(|x| eval_inner(nodes, *x, ctx, locals))
+                .map(|x| {
+                    x.and_then(|y| match y {
+                        Value::Rational(r) => Ok(r.into()),
+                        Value::Complex(c) => Ok(c),
+                        Value::Mat(_) => bail!("Unexpected matrix in matrix!"),
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?;
+
+            Ok(Value::Mat(super::value::mat::Matrix {
+                rows: *rows as _,
+                cols: *cols as _,
+                data: new_elems,
+            }))
+        }
     }
 }

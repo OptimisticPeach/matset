@@ -59,6 +59,18 @@ pub enum TypstAst<'a> {
 
     #[serde(rename = "symbol")]
     Symbol { text: &'a str },
+
+    #[serde(rename = "mat")]
+    Matrix {
+        rows: Vec<Vec<TypstAst<'a>>>,
+        delim: Option<[&'a str; 2]>,
+    },
+
+    #[serde(rename = "vec")]
+    Vector {
+        children: Vec<TypstAst<'a>>,
+        delim: Option<[&'a str; 2]>,
+    },
 }
 
 impl<'a> Display for TypstAst<'a> {
@@ -143,6 +155,38 @@ impl<'a> TypstAst<'a> {
             }
             TypstAst::Operator { text, .. } => write!(out, "{text}"),
             TypstAst::Symbol { text } => write!(out, "{text}"),
+            TypstAst::Matrix { rows, delim } => {
+                let delim = delim.unwrap_or(["(", ")"]);
+
+                write!(out, "{}", delim[0])?;
+
+                for row in &rows[..rows.len() - 1] {
+                    for elem in &row[..row.len() - 1] {
+                        write!(out, "{elem}, ")?;
+                    }
+                    write!(out, "{}; ", row[row.len() - 1])?;
+                }
+
+                let last_row = &rows[rows.len() - 1];
+
+                for elem in &last_row[..last_row.len() - 1] {
+                    write!(out, "{elem}, ")?;
+                }
+                write!(out, "{}{}", last_row[last_row.len() - 1], delim[1])
+            }
+            TypstAst::Vector { children, delim } => {
+                let delim = delim.unwrap_or(["(", ")"]);
+
+                write!(out, "{}", delim[0])?;
+
+                for row in &children[..children.len() - 1] {
+                    write!(out, "{row}; ")?;
+                }
+
+                let last_row = &children[children.len() - 1];
+
+                write!(out, "{}{}", last_row, delim[1])
+            }
         }
     }
 
@@ -303,6 +347,30 @@ impl<'a> TypstAst<'a> {
 
                 Ok(Some(text))
             }
+            TypstAst::Matrix { rows, .. } => Ok(Some(IntermediateAST::Matrix {
+                rows: rows
+                    .iter()
+                    .map(|x| {
+                        x.iter()
+                            .map(|y| {
+                                y.get_intermediate()
+                                    .and_then(|x| x.context("Matrix elements cannot be empty!"))
+                            })
+                            .collect::<Result<Vec<_>>>()
+                    })
+                    .collect::<Result<Vec<Vec<_>>>>()?,
+            })),
+            TypstAst::Vector { children, .. } => Ok(Some(IntermediateAST::Matrix {
+                rows: children
+                    .iter()
+                    .map(|x| {
+                        Ok(vec![
+                            x.get_intermediate()
+                                .and_then(|y| y.context("Vector row cannot be empty!"))?,
+                        ])
+                    })
+                    .collect::<Result<Vec<_>>>()?,
+            })),
         }
     }
 }
@@ -373,6 +441,9 @@ pub enum IntermediateAST<'a> {
     Binomial {
         upper: IAst<'a>,
         lower: IAst<'a>,
+    },
+    Matrix {
+        rows: Vec<Vec<IntermediateAST<'a>>>,
     },
 }
 

@@ -45,7 +45,7 @@ impl Display for Value {
         match self {
             Value::Rational(rational) => write!(f, "{rational}"),
             Value::Complex(complex) => write!(f, "{complex}"),
-            Value::Mat(matrix) => todo!(),
+            Value::Mat(matrix) => write!(f, "{matrix}"),
         }
     }
 }
@@ -128,7 +128,15 @@ impl Mul for Value {
             (Value::Mat(x), Value::Rational(y)) => (x * y).into(),
             (Value::Mat(x), Value::Complex(y)) => (x * y).into(),
 
-            (Value::Mat(x), Value::Mat(y)) => (x * y).into(),
+            (Value::Mat(x), Value::Mat(y)) => {
+                let mut result = x * y;
+
+                if result.cols == 1 && result.rows == 1 {
+                    result.data.pop().unwrap().into()
+                } else {
+                    result.into()
+                }
+            }
         }
     }
 }

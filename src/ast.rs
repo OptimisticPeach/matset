@@ -85,6 +85,24 @@ impl Expr {
                 self.format_into(args.last().unwrap(), f)?;
                 write!(f, ")")
             }
+            ExprNode::Matrix { rows, cols, elems } => {
+                write!(f, "(")?;
+
+                for row in 0..*rows {
+                    for col in 0..*cols {
+                        self.format_into(&elems[col * rows + row], f)?;
+                        if col != cols - 1 {
+                            write!(f, ", ")?;
+                        }
+                    }
+
+                    if row != rows - 1 {
+                        write!(f, "; ")?;
+                    }
+                }
+
+                write!(f, ")")
+            }
         }
     }
 }
@@ -101,6 +119,12 @@ pub enum ExprNode {
     Ident(IdentId),
     Binary(NodeId, NodeId, BinaryOp),
     Unary(NodeId, UnaryOp),
+    Matrix {
+        rows: usize,
+        cols: usize,
+
+        elems: Vec<NodeId>,
+    },
     Parens {
         prefix: Option<NodeId>,
         args: Vec<NodeId>,
