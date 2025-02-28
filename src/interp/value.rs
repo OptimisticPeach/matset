@@ -34,9 +34,15 @@ pub trait Field: Ring + Div<Self, Output = Self> + DivAssign<Self> {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+// #[serde(tag = "func")]
 pub enum Value {
+    // #[serde(rename = "rational")]
     Rational(Rational),
+
+    // #[serde(rename = "complex")]
     Complex(Complex),
+
+    // #[serde(rename = "matrix")]
     Mat(Matrix<Complex>),
 }
 

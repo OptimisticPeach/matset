@@ -74,7 +74,10 @@ pub fn evaluate(existing: &[u8], expr: &[u8]) -> Result<Vec<u8>, String> {
         Err(e) => Err(e.to_string())?,
     };
 
-    let s = format!("{result}");
+    let s = match serde_json::to_string(&result) {
+        Ok(x) => x,
+        Err(e) => Err(e.to_string())?,
+    };
 
     Ok(s.into())
 }
