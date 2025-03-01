@@ -20,14 +20,22 @@ pub struct EvalContext {
 impl Display for EvalContext {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (_, FunctionDef { name, params, body }) in &self.functions {
-            write!(f, "func: {{{name:?}({params:?}) = {body}}}, ")?;
+            writeln!(
+                f,
+                "func: {{@{}({}) = {body}}}, ",
+                name.0,
+                params
+                    .iter()
+                    .map(|x| format!("@{}", x.0))
+                    .collect::<String>()
+            )?;
         }
 
         for (_, VariableDef { name, value }) in &self.variables {
-            write!(f, "var: {{{name:?} = {value}}}, ")?;
+            writeln!(f, "var: {{@{} = {value}}}, ", name.0)?;
         }
 
-        write!(f, "names: {:?}", self.idents)
+        write!(f, "names: {:#?}", self.idents)
     }
 }
 
@@ -40,6 +48,7 @@ impl EvalContext {
             ParsedExpr::Variable(variable_def) => {
                 self.variables.insert(variable_def.name, variable_def);
             }
+            ParsedExpr::None => {}
         }
     }
 }

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{Field, Ring};
+use super::{Field, Ring, real::Real};
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -40,6 +40,13 @@ impl<T: Ring> Complex<T> {
         }
 
         None
+    }
+}
+
+impl Complex<Real> {
+    pub fn floatify(&mut self) {
+        self.real.floatify();
+        self.imag.floatify();
     }
 }
 

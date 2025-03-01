@@ -16,9 +16,9 @@ fn parse_eqn_inner(buf: &[u8], cache: &mut NameCache) -> anyhow::Result<ParsedEx
     cache.clear_current_locals();
     let parsed = serde_json::from_slice::<typst_ast::TypstAst>(buf)?;
 
-    let intermediate = parsed
-        .get_intermediate()?
-        .context("Empty Intermediate AST!")?;
+    let Some(intermediate) = parsed.get_intermediate()? else {
+        return Ok(ParsedExpr::None);
+    };
 
     let ast = parse::parse_statement(&intermediate, cache)?;
 
@@ -73,6 +73,34 @@ pub fn evaluate(existing: &[u8], expr: &[u8]) -> Result<Vec<u8>, String> {
         Ok(x) => x,
         Err(e) => Err(e.to_string())?,
     };
+
+    let s = match serde_json::to_string(&result) {
+        Ok(x) => x,
+        Err(e) => Err(e.to_string())?,
+    };
+
+    Ok(s.into())
+}
+
+#[cfg_attr(target_arch = "wasm32", wasm_func)]
+pub fn floateval(existing: &[u8], expr: &[u8]) -> Result<Vec<u8>, String> {
+    let mut existing = if let [] = existing {
+        EvalContext::default()
+    } else {
+        bincode::deserialize(existing).map_err(|x| x.to_string())?
+    };
+
+    let expr = match parse_expr_inner(expr, &mut existing.idents) {
+        Ok(x) => x,
+        Err(e) => Err(e.to_string())?,
+    };
+
+    let mut result = match eval::eval(&expr, &existing) {
+        Ok(x) => x,
+        Err(e) => Err(e.to_string())?,
+    };
+
+    result.floatify();
 
     let s = match serde_json::to_string(&result) {
         Ok(x) => x,

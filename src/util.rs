@@ -15,7 +15,6 @@ pub struct NameCache {
     all_locals: HashSet<usize>,
     current_locals: HashSet<usize>,
     pub reverse: Vec<String>,
-    count: usize,
 }
 
 impl NameCache {
@@ -39,8 +38,7 @@ impl NameCache {
                 *id
             }
             std::collections::hash_map::Entry::Vacant(x) => {
-                let new_id = self.count;
-                self.count += 1;
+                let new_id = self.reverse.len();
 
                 self.reverse.push(x.key().clone());
 
@@ -82,8 +80,7 @@ impl NameCache {
                 *id
             }
             std::collections::hash_map::Entry::Vacant(x) => {
-                let new_id = self.count;
-                self.count += 1;
+                let new_id = self.reverse.len();
 
                 self.reverse.push(x.key().clone());
 
@@ -109,8 +106,7 @@ impl NameCache {
         match self.names.entry(s) {
             std::collections::hash_map::Entry::Occupied(x) => Ok(IdentId(*x.get())),
             std::collections::hash_map::Entry::Vacant(x) => {
-                let new_id = self.count;
-                self.count += 1;
+                let new_id = self.reverse.len();
 
                 self.reverse.push(x.key().clone());
 
@@ -134,7 +130,7 @@ pub enum SymbolClass {
     MixedNumberAlpha,
 }
 
-pub fn is_reserved(s: &str) -> SymbolClass {
+pub fn is_reserved(mut s: &str) -> SymbolClass {
     assert_ne!(s.len(), 0);
 
     static DATA: OnceLock<HashMap<&'static str, SymbolClass>> = OnceLock::new();
@@ -183,6 +179,10 @@ pub fn is_reserved(s: &str) -> SymbolClass {
 
     if let Some(x) = data.get(s) {
         return *x;
+    }
+
+    if s.chars().next().unwrap() == '−' {
+        s = &s[3..];
     }
 
     for c in s.chars() {

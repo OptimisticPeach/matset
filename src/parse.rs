@@ -17,19 +17,27 @@ pub fn parse_statement(
 ) -> Result<ast::ParsedExpr> {
     let mut ctx = ParseContext { names };
 
-    parse_inner(ast, &mut ctx)
+    let result = parse_inner(ast, &mut ctx);
+
+    ctx.names.clear_current_locals();
+
+    result
 }
 
 pub fn parse_expr(ast: &IntermediateAST<'_>, names: &mut NameCache) -> Result<Expr> {
     let mut ctx = ParseContext { names };
 
-    parse_expr_inner(std::slice::from_ref(ast), &mut ctx)
+    let result = parse_expr_inner(std::slice::from_ref(ast), &mut ctx);
+
+    ctx.names.clear_current_locals();
+
+    result
 }
 
 fn parse_inner(ast: &IntermediateAST<'_>, ctx: &mut ParseContext<'_>) -> Result<ast::ParsedExpr> {
     match ast {
         IntermediateAST::Sequence { children } => match &**children {
-            [] => bail!("Empty sequence unexpected!"),
+            [] => Ok(ast::ParsedExpr::None),
             [name, IntermediateAST::Text { text: "≔", .. }, rest @ ..] => {
                 let ident = parse_variable_ident(name, |x| ctx.names.create_global_id(x))?;
 

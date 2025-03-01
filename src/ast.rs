@@ -162,6 +162,7 @@ pub enum ParsedExpr {
     Function(FunctionDef),
     /// `x = 2`
     Variable(VariableDef),
+    None,
 }
 
 impl std::fmt::Display for ParsedExpr {
@@ -173,6 +174,7 @@ impl std::fmt::Display for ParsedExpr {
             Self::Variable(VariableDef { name, value }) => {
                 write!(f, "{name:?} = {value}")
             }
+            Self::None => Ok(()),
         }
     }
 }

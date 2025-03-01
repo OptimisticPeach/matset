@@ -5,7 +5,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use super::Ring;
+use super::{Ring, complex::Complex, real::Real};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Matrix<T: Ring + Clone> {
@@ -47,6 +47,12 @@ impl<T: Ring> Matrix<T> {
                 .map(|x| x * rhs.clone())
                 .collect::<Vec<<T as Mul<U>>::Output>>(),
         }
+    }
+}
+
+impl Matrix<Complex<Real>> {
+    pub fn floatify(&mut self) {
+        self.data.iter_mut().for_each(Complex::<Real>::floatify);
     }
 }
 

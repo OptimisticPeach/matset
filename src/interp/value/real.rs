@@ -29,6 +29,10 @@ impl Real {
             Real::Float(x) => x,
         }
     }
+
+    pub fn floatify(&mut self) {
+        *self = self.to_f64().into()
+    }
 }
 
 macro_rules! real_ops {

@@ -53,10 +53,32 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn parse(x: &str) -> Option<Self> {
-        Rational::parse(x)
+    pub fn parse(mut x: &str) -> Option<Self> {
+        if x.len() == 0 {
+            return None;
+        }
+
+        let mut neg = false;
+
+        if x.chars().next().unwrap() == '−' {
+            neg = true;
+
+            x = &x[3..];
+        }
+        let result = Rational::parse(x)
             .map(|x| Value::Real(x.into()))
-            .or_else(|| Complex::parse(x).map(Value::Complex))
+            .or_else(|| x.parse::<f64>().ok().map(Real::Float).map(Value::Real))
+            .or_else(|| Complex::parse(x).map(Value::Complex));
+
+        if neg { result.map(|x| -x) } else { result }
+    }
+
+    pub fn floatify(&mut self) {
+        match self {
+            Value::Real(x) => x.floatify(),
+            Value::Complex(x) => x.floatify(),
+            Value::Mat(x) => x.floatify(),
+        }
     }
 }
 

@@ -27,6 +27,10 @@ impl Rational {
         let integer = split.next()?;
         let fractional = split.next()?;
 
+        if fractional.len() > 6 {
+            return None;
+        }
+
         if split.next() != None {
             return None;
         }
