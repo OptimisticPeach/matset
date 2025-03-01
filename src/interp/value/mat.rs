@@ -1,11 +1,11 @@
 use std::{
     fmt::Display,
-    ops::{Add, AddAssign, Index, Mul, MulAssign, Neg, Sub, SubAssign},
+    ops::{Add, Index, Mul, Neg, Sub},
 };
 
 use serde::{Deserialize, Serialize};
 
-use super::{Ring, complex::Complex, rational::Rational};
+use super::Ring;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Matrix<T: Ring + Clone> {
@@ -14,6 +14,40 @@ pub struct Matrix<T: Ring + Clone> {
 
     /// Data is arranged as [[T; rows]; cols], i.e. column major.
     pub data: Vec<T>,
+}
+
+impl<T: Ring> Matrix<T> {
+    pub fn mul_lhs<U: Ring>(self, lhs: U) -> Matrix<<U as Mul<T>>::Output>
+    where
+        U: Mul<T>,
+        <U as Mul<T>>::Output: Ring,
+    {
+        Matrix {
+            rows: self.rows,
+            cols: self.cols,
+            data: self
+                .data
+                .into_iter()
+                .map(|x| lhs.clone() * x)
+                .collect::<Vec<<U as Mul<T>>::Output>>(),
+        }
+    }
+
+    pub fn mul_rhs<U: Ring>(self, rhs: U) -> Matrix<<T as Mul<U>>::Output>
+    where
+        T: Mul<U>,
+        <T as Mul<U>>::Output: Ring,
+    {
+        Matrix {
+            rows: self.rows,
+            cols: self.cols,
+            data: self
+                .data
+                .into_iter()
+                .map(|x| x * rhs.clone())
+                .collect::<Vec<<T as Mul<U>>::Output>>(),
+        }
+    }
 }
 
 impl<T: Ring + Clone + Display> Display for Matrix<T> {
@@ -168,24 +202,6 @@ impl<T: Ring + Clone> Neg for Matrix<T> {
     }
 }
 
-impl<T: Ring + Clone> AddAssign for Matrix<T> {
-    fn add_assign(&mut self, rhs: Self) {
-        *self = std::mem::take(self) + rhs
-    }
-}
-
-impl<T: Ring + Clone> SubAssign for Matrix<T> {
-    fn sub_assign(&mut self, rhs: Self) {
-        *self = std::mem::take(self) - rhs
-    }
-}
-
-impl<T: Ring + Clone> MulAssign for Matrix<T> {
-    fn mul_assign(&mut self, rhs: Self) {
-        *self = std::mem::take(self) * rhs
-    }
-}
-
 impl<T: Ring + Clone> Ring for Matrix<T> {
     const ONE: Self = Self {
         rows: 0,
@@ -198,36 +214,4 @@ impl<T: Ring + Clone> Ring for Matrix<T> {
         cols: 0,
         data: vec![],
     };
-}
-
-impl<T: Ring + Clone> Mul<Rational> for Matrix<T>
-where
-    T: Mul<Rational>,
-    <T as Mul<Rational>>::Output: Ring + Clone,
-{
-    type Output = Matrix<<T as Mul<Rational>>::Output>;
-
-    fn mul(self, rhs: Rational) -> Self::Output {
-        Matrix {
-            data: self.data.into_iter().map(|x| x * rhs).collect(),
-            rows: self.rows,
-            cols: self.cols,
-        }
-    }
-}
-
-impl<T: Ring + Clone> Mul<Complex> for Matrix<T>
-where
-    T: Mul<Complex>,
-    <T as Mul<Complex>>::Output: Ring + Clone,
-{
-    type Output = Matrix<<T as Mul<Complex>>::Output>;
-
-    fn mul(self, rhs: Complex) -> Self::Output {
-        Matrix {
-            data: self.data.into_iter().map(|x| x * rhs).collect(),
-            rows: self.rows,
-            cols: self.cols,
-        }
-    }
 }

@@ -16,7 +16,7 @@ impl Expr {
         let node = &self.nodes[id.0];
 
         match node {
-            ExprNode::Constant(value) => write!(f, "{value}"),
+            ExprNode::Constant(value) => write!(f, "{value:?}"),
             ExprNode::Ident(IdentId(id)) => write!(f, "@{id}"),
             ExprNode::Binary(lhs, rhs, op) => match op {
                 BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul => {

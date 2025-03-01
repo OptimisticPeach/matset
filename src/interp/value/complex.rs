@@ -1,18 +1,25 @@
 use serde::{Deserialize, Serialize};
 
 use super::mat::Matrix;
-use super::rational::Rational;
 use super::{Field, Ring};
-use std::fmt::Display;
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use std::ops::{Add, Div, Mul, Neg, Sub};
 
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Complex {
-    real: Rational,
-    imag: Rational,
+pub struct Complex<T: Ring> {
+    real: T,
+    imag: T,
 }
 
-impl Complex {
+impl<T: Ring> Default for Complex<T> {
+    fn default() -> Self {
+        Self {
+            real: T::ZERO,
+            imag: T::ZERO,
+        }
+    }
+}
+
+impl<T: Ring> Complex<T> {
     pub fn conj(self) -> Self {
         Self {
             imag: -self.imag,
@@ -20,15 +27,15 @@ impl Complex {
         }
     }
 
-    pub fn mag_sq(self) -> Rational {
-        self.real * self.real + self.imag * self.imag
+    pub fn mag_sq(self) -> T {
+        self.real.clone() * self.real + self.imag.clone() * self.imag
     }
 
     pub fn parse(x: &str) -> Option<Self> {
         if x == "i" {
             return Self {
-                real: Rational::ZERO,
-                imag: Rational::ONE,
+                real: T::ZERO,
+                imag: T::ONE,
             }
             .into();
         }
@@ -37,33 +44,17 @@ impl Complex {
     }
 }
 
-impl Display for Complex {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if *self == Self::ZERO {
-            return write!(f, "0");
-        }
-
-        if self.real == Rational::ZERO {
-            write!(f, "{}i", self.imag)
-        } else if self.imag == Rational::ZERO {
-            write!(f, "{}", self.real)
-        } else {
-            write!(f, "{} + {}i", self.real, self.imag)
-        }
-    }
-}
-
-impl From<Rational> for Complex {
-    fn from(value: Rational) -> Self {
+impl<T: Ring> From<T> for Complex<T> {
+    fn from(value: T) -> Self {
         Self {
             real: value,
-            imag: Rational::ZERO,
+            imag: T::ZERO,
         }
     }
 }
 
-impl Add for Complex {
-    type Output = Complex;
+impl<T: Ring> Add for Complex<T> {
+    type Output = Complex<T>;
 
     fn add(self, rhs: Self) -> Self::Output {
         Self {
@@ -73,7 +64,7 @@ impl Add for Complex {
     }
 }
 
-impl Sub for Complex {
+impl<T: Ring> Sub for Complex<T> {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
@@ -81,32 +72,32 @@ impl Sub for Complex {
     }
 }
 
-impl Mul for Complex {
+impl<T: Ring> Mul for Complex<T> {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
         Self {
-            real: self.real * rhs.real - self.imag * rhs.imag,
-            imag: self.real * rhs.imag + self.imag * rhs.real,
+            real: self.real.clone() * rhs.real.clone() - self.imag.clone() * rhs.imag.clone(),
+            imag: self.real.clone() * rhs.imag.clone() + self.imag * rhs.real,
         }
     }
 }
 
-impl Div for Complex {
+impl<T: Field> Div for Complex<T> {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
-        let num = self * rhs.conj();
+        let num = self * rhs.clone().conj();
         let denom = rhs.mag_sq().inverse();
 
         Self {
-            real: num.real * denom,
+            real: num.real * denom.clone(),
             imag: num.imag * denom,
         }
     }
 }
 
-impl Neg for Complex {
+impl<T: Ring> Neg for Complex<T> {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
@@ -117,120 +108,58 @@ impl Neg for Complex {
     }
 }
 
-impl AddAssign for Complex {
-    fn add_assign(&mut self, rhs: Self) {
-        *self = *self + rhs
-    }
-}
-
-impl SubAssign for Complex {
-    fn sub_assign(&mut self, rhs: Self) {
-        *self = *self - rhs
-    }
-}
-
-impl MulAssign for Complex {
-    fn mul_assign(&mut self, rhs: Self) {
-        *self = *self * rhs
-    }
-}
-
-impl DivAssign for Complex {
-    fn div_assign(&mut self, rhs: Self) {
-        *self = *self / rhs
-    }
-}
-
-impl Ring for Complex {
+impl<T: Ring> Ring for Complex<T> {
     const ONE: Self = Self {
-        real: Rational::ONE,
-        imag: Rational::ZERO,
+        real: T::ONE,
+        imag: T::ZERO,
     };
 
     const ZERO: Self = Self {
-        real: Rational::ZERO,
-        imag: Rational::ZERO,
+        real: T::ZERO,
+        imag: T::ZERO,
     };
 }
 
-impl Field for Complex {
+impl<T: Field> Field for Complex<T> {
     fn inverse(self) -> Self {
-        let conj = self.conj();
+        let conj = self.clone().conj();
         let mag = self.mag_sq().inverse();
 
         Self {
-            real: conj.real * mag,
+            real: conj.real * mag.clone(),
             imag: conj.imag * mag,
         }
     }
 }
 
-impl Add<Rational> for Complex {
-    type Output = Complex;
+impl<T: Ring> Add<T> for Complex<T> {
+    type Output = Self;
 
-    fn add(self, rhs: Rational) -> Self::Output {
+    fn add(self, rhs: T) -> Self::Output {
         self.add(Self::from(rhs))
     }
 }
 
-impl Sub<Rational> for Complex {
-    type Output = Complex;
+impl<T: Ring> Sub<T> for Complex<T> {
+    type Output = Self;
 
-    fn sub(self, rhs: Rational) -> Self::Output {
+    fn sub(self, rhs: T) -> Self::Output {
         self.sub(Self::from(rhs))
     }
 }
 
-impl Mul<Rational> for Complex {
-    type Output = Complex;
+impl<T: Ring> Mul<T> for Complex<T> {
+    type Output = Self;
 
-    fn mul(self, rhs: Rational) -> Self::Output {
+    fn mul(self, rhs: T) -> Self::Output {
         self.mul(Self::from(rhs))
     }
 }
 
-impl Div<Rational> for Complex {
-    type Output = Complex;
+impl<T: Field> Div<T> for Complex<T> {
+    type Output = Complex<T>;
 
-    fn div(self, rhs: Rational) -> Self::Output {
+    fn div(self, rhs: T) -> Self::Output {
         self.div(Self::from(rhs))
-    }
-}
-
-impl AddAssign<Rational> for Complex {
-    fn add_assign(&mut self, rhs: Rational) {
-        *self = *self + rhs
-    }
-}
-
-impl SubAssign<Rational> for Complex {
-    fn sub_assign(&mut self, rhs: Rational) {
-        *self = *self - rhs
-    }
-}
-
-impl MulAssign<Rational> for Complex {
-    fn mul_assign(&mut self, rhs: Rational) {
-        *self = *self * rhs
-    }
-}
-
-impl DivAssign<Rational> for Complex {
-    fn div_assign(&mut self, rhs: Rational) {
-        *self = *self / rhs
-    }
-}
-
-impl<T: Ring + Clone> Mul<Matrix<T>> for Complex
-where
-    Complex: Mul<T, Output = T>,
-{
-    type Output = Matrix<T>;
-
-    fn mul(self, rhs: Matrix<T>) -> Self::Output {
-        Matrix {
-            data: rhs.data.into_iter().map(|x| self * x).collect(),
-            ..rhs
-        }
     }
 }

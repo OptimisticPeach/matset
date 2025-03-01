@@ -1,28 +1,13 @@
-use std::{
-    fmt::Display,
-    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
-};
+use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use serde::{Deserialize, Serialize};
 
-use super::{Field, Ring, complex::Complex, mat::Matrix};
+use super::{Field, Ring, mat::Matrix};
 
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Rational {
     pub(crate) num: i128,
     pub(crate) denom: u128,
-}
-
-impl Display for Rational {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.num == 0 {
-            write!(f, "0")
-        } else if self.denom == 1 {
-            write!(f, "{}", self.num)
-        } else {
-            write!(f, "{}/{}", self.num, self.denom)
-        }
-    }
 }
 
 impl Rational {
@@ -134,30 +119,6 @@ impl Neg for Rational {
     }
 }
 
-impl AddAssign for Rational {
-    fn add_assign(&mut self, rhs: Self) {
-        *self = *self + rhs
-    }
-}
-
-impl SubAssign for Rational {
-    fn sub_assign(&mut self, rhs: Self) {
-        *self = *self - rhs
-    }
-}
-
-impl MulAssign for Rational {
-    fn mul_assign(&mut self, rhs: Self) {
-        *self = *self * rhs
-    }
-}
-
-impl DivAssign for Rational {
-    fn div_assign(&mut self, rhs: Self) {
-        *self = *self / rhs
-    }
-}
-
 impl Ring for Rational {
     const ONE: Self = Self { num: 1, denom: 1 };
 
@@ -174,38 +135,6 @@ impl Field for Rational {
             num: self.denom as i128 * self.num.signum(),
             denom: self.unum(),
         }
-    }
-}
-
-impl Add<Complex> for Rational {
-    type Output = Complex;
-
-    fn add(self, rhs: Complex) -> Self::Output {
-        Complex::from(self) + rhs
-    }
-}
-
-impl Sub<Complex> for Rational {
-    type Output = Complex;
-
-    fn sub(self, rhs: Complex) -> Self::Output {
-        Complex::from(self) - rhs
-    }
-}
-
-impl Mul<Complex> for Rational {
-    type Output = Complex;
-
-    fn mul(self, rhs: Complex) -> Self::Output {
-        Complex::from(self) * rhs
-    }
-}
-
-impl Div<Complex> for Rational {
-    type Output = Complex;
-
-    fn div(self, rhs: Complex) -> Self::Output {
-        Complex::from(self) / rhs
     }
 }
 

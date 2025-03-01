@@ -125,7 +125,7 @@ fn eval_inner(
                 .map(|x| eval_inner(nodes, *x, ctx, locals))
                 .map(|x| {
                     x.and_then(|y| match y {
-                        Value::Rational(r) => Ok(r.into()),
+                        Value::Real(r) => Ok(r.into()),
                         Value::Complex(c) => Ok(c),
                         Value::Mat(_) => bail!("Unexpected matrix in matrix!"),
                     })
