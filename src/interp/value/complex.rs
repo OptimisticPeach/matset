@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use super::mat::Matrix;
 use super::{Field, Ring};
 use std::ops::{Add, Div, Mul, Neg, Sub};
 

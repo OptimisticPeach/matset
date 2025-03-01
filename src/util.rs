@@ -14,6 +14,7 @@ pub struct NameCache {
     globals: HashSet<usize>,
     all_locals: HashSet<usize>,
     current_locals: HashSet<usize>,
+    pub reverse: Vec<String>,
     count: usize,
 }
 
@@ -40,6 +41,8 @@ impl NameCache {
             std::collections::hash_map::Entry::Vacant(x) => {
                 let new_id = self.count;
                 self.count += 1;
+
+                self.reverse.push(x.key().clone());
 
                 x.insert(new_id);
 
@@ -82,6 +85,8 @@ impl NameCache {
                 let new_id = self.count;
                 self.count += 1;
 
+                self.reverse.push(x.key().clone());
+
                 x.insert(new_id);
 
                 new_id
@@ -101,15 +106,19 @@ impl NameCache {
     }
 
     pub fn make_use_of(&mut self, s: String) -> Result<IdentId> {
-        let id = self.names.entry(s).or_insert_with(|| {
-            let id = self.count;
+        match self.names.entry(s) {
+            std::collections::hash_map::Entry::Occupied(x) => Ok(IdentId(*x.get())),
+            std::collections::hash_map::Entry::Vacant(x) => {
+                let new_id = self.count;
+                self.count += 1;
 
-            self.count += 1;
+                self.reverse.push(x.key().clone());
 
-            id
-        });
+                x.insert(new_id);
 
-        Ok(IdentId(*id))
+                Ok(IdentId(new_id))
+            }
+        }
     }
 }
 

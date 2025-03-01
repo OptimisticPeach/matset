@@ -26,9 +26,12 @@ fn eval_inner(
             .or_else(|| locals.get(ident_id).cloned().map(Ok))
             .with_context(|| {
                 if ctx.functions.get(ident_id).is_some() {
-                    "Name is a function, not a variable!"
+                    format!(
+                        "Name is a function, not a variable: {}",
+                        ctx.idents.reverse[ident_id.0]
+                    )
                 } else {
-                    "Name is undefined!"
+                    "Name is undefined!".to_string()
                 }
             })?,
         ExprNode::Binary(lhs, rhs, op) => {

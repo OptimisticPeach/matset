@@ -172,7 +172,7 @@ fn parse_expr_inner(ast: &[IntermediateAST<'_>], ctx: &mut ParseContext<'_>) -> 
     Ok(Expr { nodes, root })
 }
 
-fn parse_impl_prod(
+fn parse_value_paren(
     ast: &mut &[IntermediateAST<'_>],
     ctx: &mut ParseContext<'_>,
     nodes: &mut Vec<ExprNode>,
@@ -190,29 +190,48 @@ fn parse_impl_prod(
             break;
         };
 
-        let Ok(next) = parse_base_term(second, ctx, nodes) else {
+        let second = match second {
+            IntermediateAST::LeftRight { .. } => parse_base_term(second, ctx, nodes),
+            _ => break,
+        };
+
+        let Ok(next) = second else {
             break;
         };
 
         rest = new_rest;
 
-        if let ExprNode::Parens {
+        let ExprNode::Parens {
             prefix: prefix @ None,
             ..
         } = &mut nodes[next.0]
-        {
-            *prefix = Some(term);
-            term = next;
-        } else {
-            let id = nodes.len();
+        else {
+            unreachable!()
+        };
 
-            nodes.push(ExprNode::Binary(term, next, ast::BinaryOp::Mul));
-
-            term = NodeId(id);
-        }
+        *prefix = Some(term);
+        term = next;
     }
 
     *ast = rest;
+
+    Ok(term)
+}
+
+fn parse_impl_prod(
+    ast: &mut &[IntermediateAST<'_>],
+    ctx: &mut ParseContext<'_>,
+    nodes: &mut Vec<ExprNode>,
+) -> Result<NodeId> {
+    let mut term = parse_value_paren(ast, ctx, nodes)?;
+
+    while let Ok(next) = parse_value_paren(ast, ctx, nodes) {
+        let id = nodes.len();
+
+        nodes.push(ExprNode::Binary(term, next, ast::BinaryOp::Mul));
+
+        term = NodeId(id);
+    }
 
     Ok(term)
 }
