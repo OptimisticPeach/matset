@@ -80,3 +80,19 @@ impl Field for Real {
         }
     }
 }
+
+macro_rules! unary_fn {
+    ($($name:ident),+) => {
+        impl Real {
+            $(
+                pub fn $name(self) -> Real {
+                    Real::Float(self.to_f64().$name())
+                }
+            )+
+        }
+    }
+}
+
+unary_fn!(
+    sin, cos, tan, sinh, cosh, tanh, asin, acos, atan, asinh, acosh, atanh, exp, log2, log10, ln
+);
