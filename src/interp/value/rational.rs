@@ -1,4 +1,4 @@
-use std::ops::{Add, Div, Mul, Neg, Sub};
+use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
 
 use serde::{Deserialize, Serialize};
 
@@ -13,6 +13,13 @@ pub struct Rational {
 impl Rational {
     fn unum(&self) -> u128 {
         self.num.abs() as u128
+    }
+
+    pub fn fract(self) -> Self {
+        Self {
+            num: self.num % self.denom as i128,
+            denom: self.denom,
+        }
     }
 
     pub fn parse(x: &str) -> Option<Self> {
@@ -46,6 +53,54 @@ impl Rational {
         } / Self::from((10u128).pow(fractional_len as u32));
 
         Some(Self::from(integer) + fract)
+    }
+
+    fn powi(mut self, mut power: u128) -> Self {
+        let mut acc = Self::ONE;
+
+        while power != 0 {
+            if power & 1 == 1 {
+                acc = acc * self;
+            }
+
+            self = self * self;
+            power >>= 1;
+        }
+
+        acc
+    }
+
+    pub fn pow(mut self, other: Self) -> Option<Self> {
+        self = self.powi(other.num.abs() as u128);
+
+        if other.num < 0 {
+            self = self.inverse();
+        }
+
+        if other.denom == 1 {
+            return Some(self);
+        }
+
+        if self.num < 0 && other.denom % 2 == 0 {
+            return None;
+        }
+
+        let num_root = (self.num as f64).powf(1.0 / other.denom as f64).round() as i128;
+
+        if num_root.pow(other.denom as u32) != self.num {
+            return None;
+        }
+
+        let denom_root = (self.denom as f64).powf(1.0 / other.denom as f64).round() as u128;
+
+        if denom_root.pow(other.denom as u32) != self.denom {
+            return None;
+        }
+
+        Some(Self {
+            num: num_root,
+            denom: denom_root,
+        })
     }
 }
 
@@ -109,6 +164,18 @@ impl Div for Rational {
 
     fn div(self, rhs: Self) -> Self::Output {
         self * rhs.inverse()
+    }
+}
+
+impl Rem for Rational {
+    type Output = Rational;
+
+    fn rem(self, rhs: Self) -> Rational {
+        // x = qy + r
+        // x / y = q + r/y, q in Z, |r/y| < 1
+        let rem_div_rhs = (self / rhs).fract();
+
+        rem_div_rhs * rhs
     }
 }
 

@@ -1,4 +1,4 @@
-use std::ops::{Add, Div, Mul, Neg, Sub};
+use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
 
 use serde::{Deserialize, Serialize};
 
@@ -65,6 +65,7 @@ real_ops!(Add, add, +);
 real_ops!(Sub, sub, -);
 real_ops!(Mul, mul, *);
 real_ops!(Div, div, /);
+real_ops!(Rem, rem, %);
 
 impl Ring for Real {
     const ONE: Self = Self::Rational(Rational::ONE);
@@ -96,3 +97,19 @@ macro_rules! unary_fn {
 unary_fn!(
     sin, cos, tan, sinh, cosh, tanh, asin, acos, atan, asinh, acosh, atanh, exp, log2, log10, ln
 );
+
+impl Real {
+    pub fn pow(self, other: Self) -> Self {
+        match (self, other) {
+            (Real::Rational(x), Real::Rational(y)) => x
+                .pow(y)
+                .map(Real::Rational)
+                .unwrap_or_else(|| self.to_f64().powf(other.to_f64()).into()),
+            (x, y) => x.to_f64().powf(y.to_f64()).into(),
+        }
+    }
+
+    pub fn nthroot(self, other: Self) -> Self {
+        self.pow(other.inverse())
+    }
+}
