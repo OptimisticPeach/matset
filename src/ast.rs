@@ -1,26 +1,28 @@
+use std::collections::HashMap;
+
+use anyhow::Result;
+
 use serde::{Deserialize, Serialize};
 
-use crate::interp::value::Value;
+use crate::interp::value::{Value, function::Function, rational::Rational, real::Real};
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Copy, Clone, Serialize, Deserialize)]
 pub struct NodeId(pub usize);
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Expr {
-    pub nodes: Vec<ExprNode>,
-    pub root: NodeId,
-}
-
-impl Expr {
-    fn format_into(&self, id: &NodeId, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let node = &self.nodes[id.0];
+impl NodeId {
+    pub fn format_into(
+        &self,
+        nodes: &[ExprNode],
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
+        let node = &nodes[self.0];
 
         match node {
             ExprNode::Constant(value) => write!(f, "{value:?}"),
             ExprNode::Ident(IdentId(id)) => write!(f, "@{id}"),
             ExprNode::Binary(lhs, rhs, op) => match op {
                 BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul => {
-                    self.format_into(lhs, f)?;
+                    lhs.format_into(nodes, f)?;
                     let s = match op {
                         BinaryOp::Add => " + ",
                         BinaryOp::Sub => " - ",
@@ -28,11 +30,11 @@ impl Expr {
                         _ => panic!("Truly unreachable"),
                     };
                     write!(f, "{s}")?;
-                    self.format_into(rhs, f)
+                    rhs.format_into(nodes, f)
                 }
                 BinaryOp::Div | BinaryOp::Pow | BinaryOp::Mod => {
                     write!(f, "(")?;
-                    self.format_into(lhs, f)?;
+                    lhs.format_into(nodes, f)?;
                     let s = match op {
                         BinaryOp::Div => "/",
                         BinaryOp::Pow => "^",
@@ -40,49 +42,44 @@ impl Expr {
                         _ => panic!("Truly unreachable"),
                     };
                     write!(f, "){s}(")?;
-                    self.format_into(rhs, f)?;
+                    rhs.format_into(nodes, f)?;
                     write!(f, ")")
                 }
                 BinaryOp::NthRoot => {
                     write!(f, "nthroot(")?;
-                    self.format_into(lhs, f)?;
+                    lhs.format_into(nodes, f)?;
                     write!(f, ", ")?;
-                    self.format_into(rhs, f)?;
+                    rhs.format_into(nodes, f)?;
                     write!(f, ")")
                 }
-                BinaryOp::Min => todo!(),
-                BinaryOp::Max => todo!(),
             },
             ExprNode::Unary(term, op) => {
                 if let UnaryOp::Neg = op {
                     write!(f, "-")?;
-                    self.format_into(term, f)
+                    term.format_into(nodes, f)
                 } else {
                     let s = match op {
                         UnaryOp::Sqrt => "sqrt",
-                        UnaryOp::Sin => "sin",
-                        UnaryOp::Cos => "cos",
-                        UnaryOp::Tan => "tan",
                         _ => unreachable!(),
                     };
 
                     write!(f, "{s}(")?;
 
-                    self.format_into(term, f)?;
+                    term.format_into(nodes, f)?;
                     write!(f, ")")
                 }
             }
             ExprNode::Parens { prefix, args } => {
                 if let Some(prefix) = prefix {
-                    self.format_into(prefix, f)?;
+                    prefix.format_into(nodes, f)?;
                 }
 
                 write!(f, "(")?;
                 for x in &args[..args.len() - 1] {
-                    self.format_into(x, f)?;
+                    x.format_into(nodes, f)?;
                     write!(f, ", ")?;
                 }
-                self.format_into(args.last().unwrap(), f)?;
+                args.last().unwrap().format_into(nodes, f)?;
                 write!(f, ")")
             }
             ExprNode::Matrix { rows, cols, elems } => {
@@ -90,7 +87,7 @@ impl Expr {
 
                 for row in 0..*rows {
                     for col in 0..*cols {
-                        self.format_into(&elems[col * rows + row], f)?;
+                        elems[col * rows + row].format_into(nodes, f)?;
                         if col != cols - 1 {
                             write!(f, ", ")?;
                         }
@@ -107,13 +104,7 @@ impl Expr {
     }
 }
 
-impl std::fmt::Display for Expr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.format_into(&self.root, f)
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ExprNode {
     Constant(Value),
     Ident(IdentId),
@@ -131,7 +122,7 @@ pub enum ExprNode {
     },
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum BinaryOp {
     Add,
     Sub,
@@ -140,17 +131,35 @@ pub enum BinaryOp {
     Pow,
     NthRoot,
     Mod,
-    Min,
-    Max,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+impl BinaryOp {
+    pub fn apply(self, lhs: Value, rhs: Value) -> Result<Value> {
+        match self {
+            BinaryOp::Add => Ok(lhs + rhs),
+            BinaryOp::Sub => Ok(lhs - rhs),
+            BinaryOp::Mul => Ok(lhs * rhs),
+            BinaryOp::Div => Ok(lhs / rhs),
+            BinaryOp::Mod => Ok(lhs % rhs),
+            BinaryOp::Pow => Ok(lhs.pow(rhs)?),
+            BinaryOp::NthRoot => Ok(lhs.pow(rhs.inverse())?),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum UnaryOp {
     Sqrt,
     Neg,
-    Sin,
-    Cos,
-    Tan,
+}
+
+impl UnaryOp {
+    pub fn apply(self, term: Value) -> Result<Value> {
+        match self {
+            UnaryOp::Sqrt => term.pow(Value::from(Real::Rational(Rational { num: 1, denom: 2 }))),
+            UnaryOp::Neg => Ok(-term),
+        }
+    }
 }
 
 #[derive(Debug, Hash, Eq, PartialEq, PartialOrd, Serialize, Deserialize, Copy, Clone)]
@@ -165,29 +174,25 @@ pub enum ParsedExpr {
     None,
 }
 
-impl std::fmt::Display for ParsedExpr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Function(FunctionDef { name, params, body }) => {
-                write!(f, "{name:?}({params:?}) = {body}")
-            }
-            Self::Variable(VariableDef { name, value }) => {
-                write!(f, "{name:?} = {value}")
-            }
-            Self::None => Ok(()),
-        }
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct VariableDef {
     pub(crate) name: IdentId,
-    pub(crate) value: Expr,
+    pub(crate) value: NodeId,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FunctionDef {
     pub(crate) name: IdentId,
     pub(crate) params: Vec<IdentId>,
-    pub(crate) body: Expr,
+    pub(crate) body: NodeId,
+}
+
+impl FunctionDef {
+    pub fn to_lambda(self) -> Value {
+        Value::Function(Function::Closure {
+            parameters: self.params,
+            captures: HashMap::new(),
+            body: self.body,
+        })
+    }
 }

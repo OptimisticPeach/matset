@@ -102,6 +102,14 @@ impl Rational {
             denom: denom_root,
         })
     }
+
+    pub fn is_zero(&self) -> bool {
+        self.num == 0
+    }
+
+    pub fn floor(self) -> Self {
+        Self::from(self.num / self.denom as i128)
+    }
 }
 
 fn gcd(mut a: u128, mut b: u128) -> u128 {
@@ -220,6 +228,13 @@ where
             data: rhs.data.into_iter().map(|x| self * x).collect(),
             ..rhs
         }
+    }
+}
+
+impl PartialOrd for Rational {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        // a/b ~ c/d <==> ad ~ bc
+        (self.num * other.denom as i128).partial_cmp(&(other.num * self.denom as i128))
     }
 }
 

@@ -1,6 +1,6 @@
 use anyhow::Context;
-use ast::{Expr, ParsedExpr};
-use interp::{EvalContext, eval};
+use ast::{NodeId, ParsedExpr};
+use interp::{EvalContext, NodeStore, eval, value::Value};
 use util::NameCache;
 use wasm_minimal_protocol::*;
 
@@ -12,7 +12,11 @@ pub mod parse;
 pub mod typst_ast;
 pub mod util;
 
-fn parse_eqn_inner(buf: &[u8], cache: &mut NameCache) -> anyhow::Result<ParsedExpr> {
+fn parse_eqn_inner(
+    buf: &[u8],
+    cache: &mut NameCache,
+    nodes: &mut NodeStore,
+) -> anyhow::Result<ParsedExpr> {
     cache.clear_current_locals();
     let parsed = serde_json::from_slice::<typst_ast::TypstAst>(buf)?;
 
@@ -20,12 +24,16 @@ fn parse_eqn_inner(buf: &[u8], cache: &mut NameCache) -> anyhow::Result<ParsedEx
         return Ok(ParsedExpr::None);
     };
 
-    let ast = parse::parse_statement(&intermediate, cache)?;
+    let ast = parse::parse_statement(&intermediate, cache, nodes)?;
 
     Ok(ast)
 }
 
-fn parse_expr_inner(buf: &[u8], cache: &mut NameCache) -> anyhow::Result<Expr> {
+fn parse_expr_inner(
+    buf: &[u8],
+    cache: &mut NameCache,
+    nodes: &mut NodeStore,
+) -> anyhow::Result<NodeId> {
     cache.clear_current_locals();
     let parsed = serde_json::from_slice::<typst_ast::TypstAst>(buf)?;
 
@@ -33,7 +41,7 @@ fn parse_expr_inner(buf: &[u8], cache: &mut NameCache) -> anyhow::Result<Expr> {
         .get_intermediate()?
         .context("Empty Intermediate AST!")?;
 
-    let ast = parse::parse_expr(&intermediate, cache)?;
+    let ast = parse::parse_expr(&intermediate, cache, nodes)?;
 
     Ok(ast)
 }
@@ -46,7 +54,7 @@ pub fn insert(existing: &[u8], eqn: &[u8]) -> Result<Vec<u8>, String> {
         bincode::deserialize(existing).map_err(|x| x.to_string())?
     };
 
-    let expr = match parse_eqn_inner(eqn, &mut existing.idents) {
+    let expr = match parse_eqn_inner(eqn, &mut existing.idents, &mut existing.node_store) {
         Ok(x) => x,
         Err(e) => Err(e.to_string())?,
     };
@@ -56,58 +64,36 @@ pub fn insert(existing: &[u8], eqn: &[u8]) -> Result<Vec<u8>, String> {
     bincode::serialize(&existing).map_err(|x| x.to_string())
 }
 
-#[cfg_attr(target_arch = "wasm32", wasm_func)]
-pub fn evaluate(existing: &[u8], expr: &[u8]) -> Result<Vec<u8>, String> {
+fn eval_inner(existing: &[u8], expr: &[u8]) -> anyhow::Result<Value> {
     let mut existing = if let [] = existing {
         EvalContext::default()
     } else {
-        bincode::deserialize(existing).map_err(|x| x.to_string())?
+        bincode::deserialize(existing)?
     };
 
-    let expr = match parse_expr_inner(expr, &mut existing.idents) {
-        Ok(x) => x,
-        Err(e) => Err(e.to_string())?,
-    };
+    let expr = parse_expr_inner(expr, &mut existing.idents, &mut existing.node_store)?;
 
-    let result = match eval::eval(&expr, &existing) {
-        Ok(x) => x,
-        Err(e) => Err(e.to_string())?,
-    };
+    let result = eval::eval(expr, &existing)?;
 
-    let s = match serde_json::to_string(&result) {
-        Ok(x) => x,
-        Err(e) => Err(e.to_string())?,
-    };
+    Ok(result)
+}
 
-    Ok(s.into())
+#[cfg_attr(target_arch = "wasm32", wasm_func)]
+pub fn evaluate(existing: &[u8], expr: &[u8]) -> Result<Vec<u8>, String> {
+    eval_inner(existing, expr)
+        .map_err(|x| x.to_string())
+        .and_then(|x| serde_json::to_vec(&x).map_err(|x| x.to_string()))
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_func)]
 pub fn floateval(existing: &[u8], expr: &[u8]) -> Result<Vec<u8>, String> {
-    let mut existing = if let [] = existing {
-        EvalContext::default()
-    } else {
-        bincode::deserialize(existing).map_err(|x| x.to_string())?
-    };
-
-    let expr = match parse_expr_inner(expr, &mut existing.idents) {
-        Ok(x) => x,
-        Err(e) => Err(e.to_string())?,
-    };
-
-    let mut result = match eval::eval(&expr, &existing) {
-        Ok(x) => x,
-        Err(e) => Err(e.to_string())?,
-    };
-
-    result.floatify();
-
-    let s = match serde_json::to_string(&result) {
-        Ok(x) => x,
-        Err(e) => Err(e.to_string())?,
-    };
-
-    Ok(s.into())
+    eval_inner(existing, expr)
+        .map(|mut x| {
+            x.floatify();
+            x.realify()
+        })
+        .map_err(|x| x.to_string())
+        .and_then(|x| serde_json::to_vec(&x).map_err(|x| x.to_string()))
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_func)]
@@ -125,12 +111,14 @@ pub fn debug_ctx(ctx: &[u8]) -> Result<Vec<u8>, String> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{parse_eqn_inner, util::NameCache};
+    use crate::{interp::EvalContext, parse_eqn_inner};
 
     #[test]
     fn parse_basic_func() {
+        let mut ctx = EvalContext::default();
+
         let bytes = include_bytes!("./function_def.json");
-        parse_eqn_inner(&bytes[..], &mut NameCache::default()).unwrap();
+        parse_eqn_inner(&bytes[..], &mut ctx.idents, &mut ctx.node_store).unwrap();
     }
 
     #[test]

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{Field, Ring, rational::Rational};
 
-#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum Real {
     Rational(Rational),
     Float(f64),
@@ -23,10 +23,17 @@ impl From<f64> for Real {
 }
 
 impl Real {
-    fn to_f64(self) -> f64 {
+    pub fn to_f64(self) -> f64 {
         match self {
             Real::Rational(rational) => rational.num as f64 / rational.denom as f64,
             Real::Float(x) => x,
+        }
+    }
+
+    pub fn is_zero(&self) -> bool {
+        match self {
+            Real::Rational(rational) => rational.is_zero(),
+            Real::Float(x) => *x == 0.0,
         }
     }
 
@@ -82,6 +89,24 @@ impl Field for Real {
     }
 }
 
+impl PartialEq for Real {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Real::Rational(x), Real::Rational(y)) => x == y,
+            (x, y) => x.to_f64() == y.to_f64(),
+        }
+    }
+}
+
+impl PartialOrd for Real {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match (self, other) {
+            (Real::Rational(x), Real::Rational(y)) => x.partial_cmp(y),
+            (x, y) => x.to_f64().partial_cmp(&y.to_f64()),
+        }
+    }
+}
+
 macro_rules! unary_fn {
     ($($name:ident),+) => {
         impl Real {
@@ -111,5 +136,19 @@ impl Real {
 
     pub fn nthroot(self, other: Self) -> Self {
         self.pow(other.inverse())
+    }
+
+    pub fn floor(self) -> Self {
+        match self {
+            Real::Rational(rational) => Real::Rational(rational.floor()),
+            Real::Float(x) => Real::Float(x.floor()),
+        }
+    }
+
+    pub fn fract(self) -> Self {
+        match self {
+            Real::Rational(rational) => rational.fract().into(),
+            Real::Float(x) => x.fract().into(),
+        }
     }
 }
