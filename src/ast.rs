@@ -100,6 +100,17 @@ impl NodeId {
 
                 write!(f, ")")
             }
+            ExprNode::MakeClosure { params, body, .. } => {
+                write!(f, "(")?;
+                for (idx, param) in params.iter().enumerate() {
+                    write!(f, "@{}", param.0)?;
+                    if idx != params.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, ") => ")?;
+                body.format_into(nodes, f)
+            }
         }
     }
 }
@@ -119,6 +130,11 @@ pub enum ExprNode {
     Parens {
         prefix: Option<NodeId>,
         args: Vec<NodeId>,
+    },
+    MakeClosure {
+        params: Vec<IdentId>,
+        captures: Vec<IdentId>,
+        body: NodeId,
     },
 }
 

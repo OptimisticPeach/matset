@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use super::{
     EvalContext,
-    value::{Value, rational::Rational, real::Real},
+    value::{Value, function::Function, rational::Rational, real::Real},
 };
 use crate::ast::{ExprNode, IdentId, NodeId};
 
@@ -86,6 +86,26 @@ pub fn eval_inner(
                 rows: *rows as _,
                 cols: *cols as _,
                 data: new_elems,
+            }))
+        }
+        ExprNode::MakeClosure {
+            params,
+            captures,
+            body,
+        } => {
+            let mut captured = HashMap::new();
+
+            for capture in captures {
+                if let Some(val) = locals.get(capture) {
+                    // todo: make an arena/gc ish thing
+                    captured.insert(*capture, val.clone());
+                }
+            }
+
+            Ok(Value::Function(Function::Closure {
+                parameters: params.clone(),
+                captures: captured,
+                body: *body,
             }))
         }
     }

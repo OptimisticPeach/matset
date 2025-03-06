@@ -1,5 +1,7 @@
+use std::collections::HashSet;
+
 use crate::{
-    ast::{self, ExprNode, FunctionDef, NodeId, VariableDef},
+    ast::{self, ExprNode, FunctionDef, IdentId, NodeId, VariableDef},
     interp::{NodeStore, value::Value},
     typst_ast::IntermediateAST,
     util::{NameCache, SymbolClass},
@@ -10,6 +12,29 @@ use anyhow::{Result, bail};
 struct ParseContext<'names> {
     names: &'names mut NameCache,
     nodes: &'names mut NodeStore,
+    latest_accessed_names: HashSet<IdentId>,
+    access_stack: Vec<HashSet<IdentId>>,
+}
+
+impl<'names> ParseContext<'names> {
+    fn access_name(&mut self, name: String) -> Result<IdentId> {
+        let name = self.names.make_use_of(name)?;
+
+        self.latest_accessed_names.insert(name);
+
+        Ok(name)
+    }
+
+    fn push_name_stack(&mut self) {
+        self.access_stack
+            .push(std::mem::take(&mut self.latest_accessed_names))
+    }
+
+    fn pop_name_stack(&mut self) {
+        let result = self.access_stack.pop().unwrap();
+
+        self.latest_accessed_names.extend(result.into_iter());
+    }
 }
 
 pub fn parse_statement(
@@ -17,7 +42,12 @@ pub fn parse_statement(
     names: &mut NameCache,
     nodes: &mut NodeStore,
 ) -> Result<ast::ParsedExpr> {
-    let mut ctx = ParseContext { names, nodes };
+    let mut ctx = ParseContext {
+        names,
+        nodes,
+        latest_accessed_names: HashSet::new(),
+        access_stack: vec![],
+    };
 
     let result = parse_inner(ast, &mut ctx);
 
@@ -31,7 +61,12 @@ pub fn parse_expr(
     names: &mut NameCache,
     nodes: &mut NodeStore,
 ) -> Result<NodeId> {
-    let mut ctx = ParseContext { names, nodes };
+    let mut ctx = ParseContext {
+        names,
+        nodes,
+        latest_accessed_names: HashSet::new(),
+        access_stack: vec![],
+    };
 
     let result = parse_expr_inner(std::slice::from_ref(ast), &mut ctx);
 
@@ -318,10 +353,12 @@ fn parse_sum(ast: &mut &[IntermediateAST<'_>], ctx: &mut ParseContext<'_>) -> Re
     Ok(term)
 }
 
-fn parse_closure(mut ast: &[IntermediateAST<'_>], ctx: &mut ParseContext<'_>) -> Result<NodeId> {
+fn parse_closure(ast: &mut &[IntermediateAST<'_>], ctx: &mut ParseContext<'_>) -> Result<NodeId> {
     let [params, IntermediateAST::Text { text: "↦", .. }, rest @ ..] = ast else {
         bail!("Wrong structure for a closure!")
     };
+
+    let mut rest = rest;
 
     let params = match params {
         IntermediateAST::LeftRight {
@@ -331,10 +368,39 @@ fn parse_closure(mut ast: &[IntermediateAST<'_>], ctx: &mut ParseContext<'_>) ->
         } => parse_function_params(children, ctx)?,
         x => parse_function_params(x, ctx)?,
     };
+
+    ctx.push_name_stack();
+    let body = parse_sum_or_closure(&mut rest, ctx)?;
+    *ast = rest;
+    let captures = ctx.latest_accessed_names.iter().copied().collect();
+    ctx.pop_name_stack();
+
+    let id = ctx.nodes.make(ExprNode::MakeClosure {
+        params,
+        captures,
+        body,
+    });
+
+    Ok(id)
+}
+
+fn parse_sum_or_closure(
+    ast: &mut &[IntermediateAST<'_>],
+    ctx: &mut ParseContext<'_>,
+) -> Result<NodeId> {
+    let mut temp_ast = *ast;
+
+    if let Ok(result) = parse_closure(&mut temp_ast, ctx) {
+        *ast = temp_ast;
+
+        return Ok(result);
+    }
+
+    parse_sum(ast, ctx)
 }
 
 fn parse_sequence(mut ast: &[IntermediateAST<'_>], ctx: &mut ParseContext<'_>) -> Result<NodeId> {
-    let result = parse_sum(&mut ast, ctx)?;
+    let result = parse_sum_or_closure(&mut ast, ctx)?;
 
     assert!(ast.is_empty(), "Ast was not entirely consumed: {ast:?}");
 
@@ -350,7 +416,7 @@ fn parse_base_term(ast: &IntermediateAST<'_>, ctx: &mut ParseContext<'_>) -> Res
             SymbolClass::UnusedSymbol => bail!("Unrecognized symbol: `{text}`"),
             SymbolClass::InfixOperator => bail!("Unexpected infix operator `{text}`"),
             SymbolClass::BuiltinFunction => {
-                let ident = parse_variable_ident(ast, |x| ctx.names.make_use_of(x))?;
+                let ident = parse_variable_ident(ast, |x| ctx.access_name(x))?;
                 let ident = ctx.nodes.make_ident(ident);
 
                 Ok(ident)
@@ -359,7 +425,7 @@ fn parse_base_term(ast: &IntermediateAST<'_>, ctx: &mut ParseContext<'_>) -> Res
                 if let Some(val) = Value::parse(text) {
                     Ok(ctx.nodes.make_constant(val))
                 } else {
-                    let ident = parse_variable_ident(ast, |x| ctx.names.make_use_of(x))?;
+                    let ident = parse_variable_ident(ast, |x| ctx.access_name(x))?;
                     Ok(ctx.nodes.make_ident(ident))
                 }
             }
@@ -367,7 +433,7 @@ fn parse_base_term(ast: &IntermediateAST<'_>, ctx: &mut ParseContext<'_>) -> Res
         },
         IntermediateAST::Frac { num, denom } => parse_binary(ast::BinaryOp::Div, num, denom, ctx),
         IntermediateAST::Subscript { .. } => {
-            let ident = parse_variable_ident(ast, |x| ctx.names.make_use_of(x))?;
+            let ident = parse_variable_ident(ast, |x| ctx.access_name(x))?;
             Ok(ctx.nodes.make_ident(ident))
         }
         IntermediateAST::Power { base, power } => {
