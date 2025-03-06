@@ -136,6 +136,26 @@ fn parse_comma_separated<T>(
     Ok(elems)
 }
 
+fn parse_function_params(
+    paren_children: &IntermediateAST<'_>,
+    ctx: &mut ParseContext<'_>,
+) -> Result<Vec<ast::IdentId>> {
+    match paren_children {
+        IntermediateAST::Sequence { children } => parse_comma_separated(children, |names| {
+            let name = match names {
+                [] => bail!("Parameter list cannot end in comma"),
+                [name] => name,
+                _ => bail!("Paramter list must consist of identifiers!"),
+            };
+
+            parse_variable_ident(name, |x| ctx.names.create_local_id(x))
+        }),
+        x => Ok(vec![parse_variable_ident(x, |x| {
+            ctx.names.create_local_id(x)
+        })?]),
+    }
+}
+
 fn parse_function_signature(
     lhs_ast: &[IntermediateAST<'_>],
     ctx: &mut ParseContext<'_>,
@@ -162,18 +182,7 @@ fn parse_function_signature(
         return Ok((name, vec![]));
     };
 
-    let children = match &**children {
-        IntermediateAST::Sequence { children } => parse_comma_separated(children, |names| {
-            let name = match names {
-                [] => bail!("Parameter list cannot end in comma"),
-                [name] => name,
-                _ => bail!("Paramter list must consist of identifiers!"),
-            };
-
-            parse_variable_ident(name, |x| ctx.names.create_local_id(x))
-        })?,
-        x => vec![parse_variable_ident(x, |x| ctx.names.create_local_id(x))?],
-    };
+    let children = parse_function_params(children, ctx)?;
 
     Ok((name, children))
 }
@@ -307,6 +316,21 @@ fn parse_sum(ast: &mut &[IntermediateAST<'_>], ctx: &mut ParseContext<'_>) -> Re
     }
 
     Ok(term)
+}
+
+fn parse_closure(mut ast: &[IntermediateAST<'_>], ctx: &mut ParseContext<'_>) -> Result<NodeId> {
+    let [params, IntermediateAST::Text { text: "↦", .. }, rest @ ..] = ast else {
+        bail!("Wrong structure for a closure!")
+    };
+
+    let params = match params {
+        IntermediateAST::LeftRight {
+            left: "(",
+            right: ")",
+            children: Some(children),
+        } => parse_function_params(children, ctx)?,
+        x => parse_function_params(x, ctx)?,
+    };
 }
 
 fn parse_sequence(mut ast: &[IntermediateAST<'_>], ctx: &mut ParseContext<'_>) -> Result<NodeId> {
