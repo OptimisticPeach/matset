@@ -40,6 +40,13 @@ impl Default for EvalContext {
             ("sin", Value::Function(Function::BuiltinUnary(Sin))),
             ("cos", Value::Function(Function::BuiltinUnary(Cos))),
             ("tan", Value::Function(Function::BuiltinUnary(Tan))),
+            ("sinh", Value::Function(Function::BuiltinUnary(Sinh))),
+            ("cosh", Value::Function(Function::BuiltinUnary(Cosh))),
+            ("tanh", Value::Function(Function::BuiltinUnary(Tanh))),
+            ("exp", Value::Function(Function::BuiltinUnary(Exp))),
+            ("ln", Value::Function(Function::BuiltinUnary(Ln))),
+            ("det", Value::Function(Function::BuiltinUnary(Det))),
+            ("tr", Value::Function(Function::BuiltinUnary(Trace))),
         ] {
             initial.insert_constant(name, value);
         }

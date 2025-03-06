@@ -8,13 +8,20 @@ use crate::{
     interp::{EvalContext, eval::eval_inner},
 };
 
-use super::{Value, complex::Complex, real::Real};
+use super::{Value, complex::Complex, mat::Matrix, real::Real};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BuiltinUnary {
     Sin,
     Cos,
     Tan,
+    Sinh,
+    Cosh,
+    Tanh,
+    Exp,
+    Ln,
+    Det,
+    Trace,
 }
 
 impl BuiltinUnary {
@@ -26,7 +33,7 @@ impl BuiltinUnary {
         match param {
             Value::Real(real) => Ok(self.apply_real(*real)),
             Value::Complex(complex) => Ok(self.apply_complex(*complex)),
-            Value::Mat(_) => unimplemented!(),
+            Value::Mat(mat) => Ok(self.apply_mat(mat)),
             Value::Function(_) => unimplemented!(),
         }
     }
@@ -36,6 +43,12 @@ impl BuiltinUnary {
             BuiltinUnary::Sin => val.sin(),
             BuiltinUnary::Cos => val.cos(),
             BuiltinUnary::Tan => val.tan(),
+            BuiltinUnary::Sinh => val.sinh(),
+            BuiltinUnary::Cosh => val.cosh(),
+            BuiltinUnary::Tanh => val.tanh(),
+            BuiltinUnary::Exp => val.exp(),
+            BuiltinUnary::Ln => val.ln(),
+            BuiltinUnary::Det | BuiltinUnary::Trace => val.into(),
         }
         .into()
     }
@@ -45,8 +58,22 @@ impl BuiltinUnary {
             BuiltinUnary::Sin => val.sin(),
             BuiltinUnary::Cos => val.cos(),
             BuiltinUnary::Tan => val.tan(),
+            BuiltinUnary::Sinh => val.sinh(),
+            BuiltinUnary::Cosh => val.cosh(),
+            BuiltinUnary::Tanh => val.tanh(),
+            BuiltinUnary::Exp => val.exp(),
+            BuiltinUnary::Ln => val.ln(),
+            BuiltinUnary::Det | BuiltinUnary::Trace => val.into(),
         }
         .into()
+    }
+
+    pub fn apply_mat(self, val: &Matrix<Complex<Real>>) -> Value {
+        match self {
+            BuiltinUnary::Det => val.det().into(),
+            BuiltinUnary::Trace => val.trace().into(),
+            _ => unimplemented!(),
+        }
     }
 }
 

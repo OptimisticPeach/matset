@@ -167,6 +167,8 @@ pub fn is_reserved(mut s: &str) -> SymbolClass {
         ("arcsch", SymbolClass::BuiltinFunction),
         ("arsech", SymbolClass::BuiltinFunction),
         ("arcoth", SymbolClass::BuiltinFunction),
+        ("det", SymbolClass::BuiltinFunction),
+        ("tr", SymbolClass::BuiltinFunction),
         ("+", SymbolClass::InfixOperator),
         ("−", SymbolClass::InfixOperator),
         ("-", SymbolClass::InfixOperator),

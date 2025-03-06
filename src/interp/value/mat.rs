@@ -48,6 +48,59 @@ impl<T: Ring> Matrix<T> {
                 .collect::<Vec<<T as Mul<U>>::Output>>(),
         }
     }
+
+    fn det_inner(&self, row_level: u8, columns: &mut Vec<u8>) -> T {
+        if columns.len() == 2 {
+            return self[(row_level, columns[0])].clone()
+                * self[(row_level + 1, columns[1])].clone()
+                - self[(row_level, columns[1])].clone()
+                    * self[(row_level + 1, columns[0])].clone();
+        }
+
+        let mut acc = T::ZERO;
+
+        for i in 0..columns.len() {
+            let column = columns.remove(i);
+
+            let elem = self[(row_level, column)].clone();
+
+            let d = self.det_inner(row_level + 1, columns);
+
+            if i % 2 == 0 {
+                acc = acc + elem * d;
+            } else {
+                acc = acc - elem * d;
+            }
+
+            columns.insert(i, column);
+        }
+
+        acc
+    }
+
+    pub fn det(&self) -> T {
+        if self.rows != self.cols {
+            panic!("To take determinant, matrix must be square!")
+        }
+
+        let mut cols = (0..self.cols).collect::<Vec<_>>();
+
+        self.det_inner(0, &mut cols)
+    }
+
+    pub fn trace(&self) -> T {
+        if self.rows != self.cols {
+            panic!("To take determinant, matrix must be square!")
+        }
+
+        let mut acc = T::ZERO;
+
+        for i in 0..self.cols {
+            acc = acc + self[(i, i)].clone();
+        }
+
+        acc
+    }
 }
 
 impl Matrix<Complex<Real>> {

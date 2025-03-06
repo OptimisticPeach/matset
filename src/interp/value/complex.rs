@@ -176,6 +176,57 @@ impl Complex<Real> {
         self.sin() / self.cos()
     }
 
+    pub fn sinh(self) -> Self {
+        let Self {
+            real: Real::Float(re),
+            imag: Real::Float(im),
+        } = self.exp() - self.neg().exp()
+        else {
+            unreachable!()
+        };
+
+        Self {
+            real: Real::Float(re / 2.0),
+            imag: Real::Float(im / 2.0),
+        }
+    }
+
+    pub fn cosh(self) -> Self {
+        let Self {
+            real: Real::Float(re),
+            imag: Real::Float(im),
+        } = self.exp() + self.neg().exp()
+        else {
+            unreachable!()
+        };
+
+        Self {
+            real: Real::Float(re / 2.0),
+            imag: Real::Float(im / 2.0),
+        }
+    }
+
+    pub fn tanh(self) -> Self {
+        self.sinh() / self.cosh()
+    }
+
+    pub fn ln(self) -> Self {
+        if self == Self::ONE {
+            return Self::ZERO;
+        }
+
+        let x = self.real.to_f64();
+        let y = self.imag.to_f64();
+
+        let mag = x.hypot(y).ln();
+        let arg = y.atan2(x);
+
+        Self {
+            real: Real::Float(mag),
+            imag: Real::Float(arg),
+        }
+    }
+
     pub fn muli(self) -> Self {
         Self {
             real: -self.imag,
