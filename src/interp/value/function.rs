@@ -1,10 +1,10 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Formatter};
 
 use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ast::{BinaryOp, IdentId, NodeId, UnaryOp},
+    ast::{BinaryOp, ExprNode, IdentId, NodeId, UnaryOp},
     interp::{EvalContext, eval::eval_inner},
 };
 
@@ -77,6 +77,7 @@ impl BuiltinUnary {
     }
 }
 
+// todo: max, min, mod
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BuiltinBinary {}
 
@@ -232,5 +233,35 @@ impl Function {
             inner: inner.into(),
             outer: self.into(),
         })
+    }
+}
+
+impl Function {
+    pub fn format_into(&self, nodes: &[ExprNode], f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Function::BuiltinUnary(builtin_unary) => write!(f, "{builtin_unary:?}"),
+            Function::BuiltinBinary(builtin_binary) => write!(f, "{builtin_binary:?}"),
+            Function::Closure {
+                parameters, body, ..
+            } => {
+                write!(f, "(")?;
+
+                for (i, param) in parameters.iter().enumerate() {
+                    write!(f, "@{}", param.0)?;
+
+                    if i != parameters.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+
+                write!(f, ") => ")?;
+
+                body.format_into(nodes, f)
+            }
+            Function::CompositeBinary { lhs, rhs, op } => todo!(),
+            Function::CompositeUnary { term, op } => todo!(),
+            Function::Composition { inner, outer } => todo!(),
+            Function::Constant(value) => todo!(),
+        }
     }
 }

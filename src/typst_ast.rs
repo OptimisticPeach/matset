@@ -71,6 +71,9 @@ pub enum TypstAst<'a> {
         children: Vec<TypstAst<'a>>,
         delim: Option<[&'a str; 2]>,
     },
+
+    #[serde(rename = "overline")]
+    Bar { body: BAst<'a> },
 }
 
 impl<'a> Display for TypstAst<'a> {
@@ -187,6 +190,7 @@ impl<'a> TypstAst<'a> {
 
                 write!(out, "{}{}", last_row, delim[1])
             }
+            TypstAst::Bar { body } => write!(out, "conj({body})"),
         }
     }
 
@@ -371,6 +375,13 @@ impl<'a> TypstAst<'a> {
                     })
                     .collect::<Result<Vec<_>>>()?,
             })),
+
+            TypstAst::Bar { body } => Ok(Some(IntermediateAST::Conjugate {
+                body: body
+                    .get_intermediate()?
+                    .context("Conjugates may not be empty!")?
+                    .into(),
+            })),
         }
     }
 }
@@ -444,6 +455,9 @@ pub enum IntermediateAST<'a> {
     },
     Matrix {
         rows: Vec<Vec<IntermediateAST<'a>>>,
+    },
+    Conjugate {
+        body: IAst<'a>,
     },
 }
 

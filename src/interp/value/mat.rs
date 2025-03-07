@@ -109,6 +109,14 @@ impl Matrix<Complex<Real>> {
     }
 }
 
+impl<T: Ring> Matrix<Complex<T>> {
+    pub fn conj(mut self) -> Self {
+        self.data.iter_mut().for_each(|x| *x = x.clone().conj());
+
+        self
+    }
+}
+
 impl<T: Ring + Clone + Display> Display for Matrix<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "(")?;

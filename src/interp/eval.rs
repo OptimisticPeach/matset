@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use super::{
     EvalContext,
-    value::{Value, function::Function, rational::Rational, real::Real},
+    value::{Value, function::Function},
 };
 use crate::ast::{ExprNode, IdentId, NodeId};
 
@@ -35,12 +35,7 @@ pub fn eval_inner(
         ExprNode::Unary(term, op) => {
             let term = eval_inner(*term, ctx, locals)?;
 
-            match op {
-                crate::ast::UnaryOp::Sqrt => {
-                    term.pow(Value::from(Real::Rational(Rational { num: 1, denom: 2 })))
-                }
-                crate::ast::UnaryOp::Neg => Ok(-term),
-            }
+            op.apply(term)
         }
         ExprNode::Parens { prefix, args } => {
             if let Some(prefix) = prefix {

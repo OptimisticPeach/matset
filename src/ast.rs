@@ -18,7 +18,10 @@ impl NodeId {
         let node = &nodes[self.0];
 
         match node {
-            ExprNode::Constant(value) => write!(f, "{value:?}"),
+            ExprNode::Constant(value) => match value {
+                Value::Function(func) => func.format_into(nodes, f),
+                value => write!(f, "{value:?}"),
+            },
             ExprNode::Ident(IdentId(id)) => write!(f, "@{id}"),
             ExprNode::Binary(lhs, rhs, op) => match op {
                 BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul => {
@@ -163,10 +166,11 @@ impl BinaryOp {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum UnaryOp {
     Sqrt,
     Neg,
+    Conj,
 }
 
 impl UnaryOp {
@@ -174,6 +178,7 @@ impl UnaryOp {
         match self {
             UnaryOp::Sqrt => term.pow(Value::from(Real::Rational(Rational { num: 1, denom: 2 }))),
             UnaryOp::Neg => Ok(-term),
+            UnaryOp::Conj => Ok(term.conjugate()),
         }
     }
 }

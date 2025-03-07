@@ -155,7 +155,9 @@ impl Value {
 
                 Ok(acc.unwrap().into())
             }
-            Value::Function(_) => bail!("Cannot take powers of functions"),
+            Value::Function(f) => f
+                .bin_op_lhs(power.into(), crate::ast::BinaryOp::Pow)
+                .map(Into::into),
         }
     }
 
@@ -165,6 +167,15 @@ impl Value {
             Value::Complex(complex) => Value::Complex(complex.inverse()),
             Value::Mat(_) => unimplemented!(),
             Value::Function(_) => panic!("Cannot take inverse of function!"),
+        }
+    }
+
+    pub fn conjugate(self) -> Self {
+        match self {
+            Value::Real(x) => Value::Real(x),
+            Value::Complex(x) => x.conj().into(),
+            Value::Mat(x) => x.conj().into(),
+            Value::Function(x) => x.unary_op(crate::ast::UnaryOp::Conj).into(),
         }
     }
 }

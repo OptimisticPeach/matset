@@ -505,6 +505,10 @@ fn parse_base_term(ast: &IntermediateAST<'_>, ctx: &mut ParseContext<'_>) -> Res
                 elems,
             }))
         }
+        IntermediateAST::Conjugate { body } => {
+            let result = parse_base_term(body, ctx)?;
+            Ok(ctx.nodes.make_un_op(result, ast::UnaryOp::Conj))
+        }
     }
 }
 
