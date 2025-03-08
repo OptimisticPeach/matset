@@ -438,7 +438,20 @@ fn parse_base_term(ast: &IntermediateAST<'_>, ctx: &mut ParseContext<'_>) -> Res
             Ok(ctx.nodes.make_ident(ident))
         }
         IntermediateAST::Power { base, power } => {
-            parse_binary(ast::BinaryOp::Pow, base, power, ctx)
+            if let IntermediateAST::Text {
+                text: "T" | "t", ..
+            } = &**power
+            {
+                parse_unary(ast::UnaryOp::Transpose, base, ctx)
+            } else if let IntermediateAST::Text {
+                text: "*" | "∗" | "†",
+                ..
+            } = &**power
+            {
+                parse_unary(ast::UnaryOp::ConjTranspose, base, ctx)
+            } else {
+                parse_binary(ast::BinaryOp::Pow, base, power, ctx)
+            }
         }
         IntermediateAST::Prime { .. } => unimplemented!(),
         IntermediateAST::LeftRight {

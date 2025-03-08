@@ -179,6 +179,15 @@ impl Value {
         }
     }
 
+    pub fn transpose(self) -> Self {
+        match self {
+            Value::Real(x) => x.into(),
+            Value::Complex(x) => x.into(),
+            Value::Mat(x) => x.transpose().into(),
+            Value::Function(x) => x.unary_op(crate::ast::UnaryOp::Transpose).into(),
+        }
+    }
+
     pub fn norm(self) -> Self {
         match self {
             Value::Real(_) | Value::Complex(_) => self,

@@ -192,6 +192,8 @@ pub enum UnaryOp {
     Conj,
     Mag,
     Norm,
+    Transpose,
+    ConjTranspose,
 }
 
 impl Display for UnaryOp {
@@ -202,6 +204,8 @@ impl Display for UnaryOp {
             UnaryOp::Conj => "conj",
             UnaryOp::Mag => "mag",
             UnaryOp::Norm => "norm",
+            UnaryOp::Transpose => "transpose",
+            UnaryOp::ConjTranspose => "conj_transpose",
         };
 
         write!(f, "{symbol}")
@@ -216,6 +220,9 @@ impl UnaryOp {
             UnaryOp::Conj => Ok(term.conjugate()),
             UnaryOp::Mag => Ok(term.mag()),
             UnaryOp::Norm => Ok(term.norm()),
+            UnaryOp::Transpose => Ok(term.transpose()),
+
+            UnaryOp::ConjTranspose => Ok(term.transpose().conjugate()),
         }
     }
 }
