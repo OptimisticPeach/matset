@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 use anyhow::Result;
 
@@ -63,6 +63,7 @@ impl NodeId {
                 } else {
                     let s = match op {
                         UnaryOp::Sqrt => "sqrt",
+                        UnaryOp::Conj => "conj",
                         _ => unreachable!(),
                     };
 
@@ -166,11 +167,39 @@ impl BinaryOp {
     }
 }
 
+impl Display for BinaryOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let symbol = match self {
+            BinaryOp::Add => "+",
+            BinaryOp::Sub => "-",
+            BinaryOp::Mul => "*",
+            BinaryOp::Div => "/",
+            BinaryOp::Pow => "^",
+            BinaryOp::NthRoot => "root",
+            BinaryOp::Mod => "%",
+        };
+
+        write!(f, "{symbol}")
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum UnaryOp {
     Sqrt,
     Neg,
     Conj,
+}
+
+impl Display for UnaryOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let symbol = match self {
+            UnaryOp::Sqrt => "sqrt",
+            UnaryOp::Neg => "-",
+            UnaryOp::Conj => "conj",
+        };
+
+        write!(f, "{symbol}")
+    }
 }
 
 impl UnaryOp {

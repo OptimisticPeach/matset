@@ -1,0 +1,1 @@
+{"func":"equation","block":true,"body":{"func":"sequence","children":[{"func":"symbol","text":"f"},{"func":"space"},{"func":"symbol","text":"≔"},{"func":"space"},{"func":"overline","body":{"func":"op","text":{"func":"text","text":"sin"},"limits":false}}]}}

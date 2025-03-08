@@ -137,6 +137,13 @@ mod tests {
     }
 
     #[test]
+    fn function_comp() {
+        let eval_bytes = include_bytes!("./function_comp.json");
+        let reply = super::insert(&[], eval_bytes).unwrap();
+        let _reply = super::debug_ctx(&reply).unwrap();
+    }
+
+    #[test]
     fn matrix() {
         let eval_bytes = include_bytes!("./mat_test.json");
         let _reply = super::evaluate(&[], eval_bytes).unwrap();

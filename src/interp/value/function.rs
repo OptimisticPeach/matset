@@ -258,10 +258,28 @@ impl Function {
 
                 body.format_into(nodes, f)
             }
-            Function::CompositeBinary { lhs, rhs, op } => todo!(),
-            Function::CompositeUnary { term, op } => todo!(),
-            Function::Composition { inner, outer } => todo!(),
-            Function::Constant(value) => todo!(),
+            Function::CompositeBinary { lhs, rhs, op } => {
+                write!(f, "(")?;
+                lhs.format_into(nodes, f)?;
+                write!(f, ") {op} (")?;
+                rhs.format_into(nodes, f)?;
+                write!(f, ")")
+            }
+            Function::CompositeUnary { term, op } => {
+                write!(f, "{op}(")?;
+                term.format_into(nodes, f)?;
+                write!(f, ")")
+            }
+            Function::Composition { inner, outer } => {
+                write!(f, "(")?;
+                outer.format_into(nodes, f)?;
+                write!(f, ")(")?;
+                inner.format_into(nodes, f)?;
+                write!(f, "))")
+            }
+            Function::Constant(value) => {
+                write!(f, "{value:?}")
+            }
         }
     }
 }
