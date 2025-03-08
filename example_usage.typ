@@ -26,7 +26,7 @@
 
 #show: look_good
 
-#import "typst_src/api.typ": *
+#import "@preview/matset:0.1.0": *
 
 = Example usage
 
