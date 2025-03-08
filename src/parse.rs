@@ -502,6 +502,31 @@ fn parse_base_term(ast: &IntermediateAST<'_>, ctx: &mut ParseContext<'_>) -> Res
                 Ok(ctx.nodes.make_un_op(child, ast::UnaryOp::Norm))
             }
 
+            ("⟨", "⟩") => {
+                let Some(children) = children else {
+                    bail!("Empty inner products are not permitted!")
+                };
+
+                let children = match &**children {
+                    IntermediateAST::Sequence { children } => {
+                        parse_comma_separated(children, |x| parse_sequence(x, ctx))?
+                    }
+                    _ => {
+                        let children = std::slice::from_ref(&**children);
+
+                        vec![parse_sequence(children, ctx)?]
+                    }
+                };
+
+                let [lhs, rhs] = &*children else {
+                    bail!("Inner products take two arguments!")
+                };
+
+                Ok(ctx
+                    .nodes
+                    .make_bin_op(*lhs, *rhs, ast::BinaryOp::InnerProduct))
+            }
+
             (left, right) => {
                 bail!("Unexpected parentheses: `{left}`, `{right}`")
             }

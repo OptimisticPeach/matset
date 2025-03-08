@@ -24,12 +24,13 @@ impl NodeId {
             },
             ExprNode::Ident(IdentId(id)) => write!(f, "@{id}"),
             ExprNode::Binary(lhs, rhs, op) => match op {
-                BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul => {
+                BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::InnerProduct => {
                     lhs.format_into(nodes, f)?;
                     let s = match op {
                         BinaryOp::Add => " + ",
                         BinaryOp::Sub => " - ",
                         BinaryOp::Mul => " * ",
+                        BinaryOp::InnerProduct => " . ",
                         _ => panic!("Truly unreachable"),
                     };
                     write!(f, "{s}")?;
@@ -153,6 +154,7 @@ pub enum BinaryOp {
     Pow,
     NthRoot,
     Mod,
+    InnerProduct,
 }
 
 impl BinaryOp {
@@ -165,6 +167,7 @@ impl BinaryOp {
             BinaryOp::Mod => Ok(lhs % rhs),
             BinaryOp::Pow => Ok(lhs.pow(rhs)?),
             BinaryOp::NthRoot => Ok(lhs.pow(rhs.inverse())?),
+            BinaryOp::InnerProduct => Ok(rhs.conjugate().transpose() * lhs),
         }
     }
 }
@@ -179,6 +182,7 @@ impl Display for BinaryOp {
             BinaryOp::Pow => "^",
             BinaryOp::NthRoot => "root",
             BinaryOp::Mod => "%",
+            BinaryOp::InnerProduct => ".",
         };
 
         write!(f, "{symbol}")
