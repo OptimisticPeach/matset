@@ -178,6 +178,23 @@ impl Value {
             Value::Function(x) => x.unary_op(crate::ast::UnaryOp::Conj).into(),
         }
     }
+
+    pub fn norm(self) -> Self {
+        match self {
+            Value::Real(_) | Value::Complex(_) => self,
+            Value::Mat(mat) => mat.norm().into(),
+            Value::Function(function) => function.unary_op(crate::ast::UnaryOp::Norm).into(),
+        }
+    }
+
+    pub fn mag(self) -> Self {
+        match self {
+            Value::Real(real) => real.into(),
+            Value::Complex(complex) => complex.mag_sq().sqrt().into(),
+            Value::Mat(matrix) => matrix.det().into(),
+            Value::Function(function) => function.unary_op(crate::ast::UnaryOp::Mag).into(),
+        }
+    }
 }
 
 impl Default for Value {

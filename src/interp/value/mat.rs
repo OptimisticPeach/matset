@@ -101,11 +101,35 @@ impl<T: Ring> Matrix<T> {
 
         acc
     }
+
+    pub fn transpose(mut self) -> Self {
+        let mut result = Vec::with_capacity(self.rows as usize * self.cols as usize);
+
+        for row in 0..self.rows {
+            for col in 0..self.cols {
+                result.push(self[(col, row)].clone())
+            }
+        }
+
+        std::mem::swap(&mut self.rows, &mut self.cols);
+        std::mem::swap(&mut self.data, &mut result);
+
+        self
+    }
 }
 
 impl Matrix<Complex<Real>> {
     pub fn floatify(&mut self) {
         self.data.iter_mut().for_each(Complex::<Real>::floatify);
+    }
+
+    pub fn norm(&self) -> Complex<Real> {
+        let result = self.clone().conj_transpose() * self.clone();
+
+        assert!(result.rows == 1, "Cannot take norm of non vector");
+        assert!(result.cols == 1, "Cannot take norm of non vector");
+
+        result.data[0].sqrt()
     }
 }
 
@@ -114,6 +138,10 @@ impl<T: Ring> Matrix<Complex<T>> {
         self.data.iter_mut().for_each(|x| *x = x.clone().conj());
 
         self
+    }
+
+    pub fn conj_transpose(self) -> Self {
+        self.conj().transpose()
     }
 }
 

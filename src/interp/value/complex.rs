@@ -78,6 +78,10 @@ impl Complex<Real> {
         self.real.is_zero() && self.imag.is_zero()
     }
 
+    pub fn sqrt(self) -> Self {
+        self.pow(Complex::from(Real::from(0.5f64)))
+    }
+
     pub fn pow(self, other: Self) -> Self {
         if self.is_zero() {
             Self::ZERO

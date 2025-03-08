@@ -408,6 +408,7 @@ fn parse_sequence(mut ast: &[IntermediateAST<'_>], ctx: &mut ParseContext<'_>) -
 }
 
 fn parse_base_term(ast: &IntermediateAST<'_>, ctx: &mut ParseContext<'_>) -> Result<NodeId> {
+    println!("Got here: {ast:?}");
     match ast {
         IntermediateAST::Sequence { children } => parse_sequence(children, ctx),
         IntermediateAST::Comma => bail!("Unexpected comma in expression!"),
@@ -444,33 +445,54 @@ fn parse_base_term(ast: &IntermediateAST<'_>, ctx: &mut ParseContext<'_>) -> Res
             left,
             right,
             children,
-        } => {
-            if ("(", ")") != (left, right) {
-                bail!("Unexpected parentheses: `{left}`, `{right}`")
+        } => match (*left, *right) {
+            ("(", ")") => {
+                let Some(children) = children else {
+                    bail!("Empty parentheses are not permitted!")
+                };
+
+                let children = match &**children {
+                    IntermediateAST::Sequence { children } => {
+                        parse_comma_separated(children, |x| parse_sequence(x, ctx))?
+                    }
+                    _ => {
+                        let children = std::slice::from_ref(&**children);
+
+                        vec![parse_sequence(children, ctx)?]
+                    }
+                };
+
+                let node = ExprNode::Parens {
+                    prefix: None,
+                    args: children,
+                };
+
+                Ok(ctx.nodes.make(node))
+            }
+            ("|", "|") => {
+                let Some(children) = children else {
+                    bail!("Empty magnitude is not permitted!")
+                };
+
+                let child = parse_base_term(children, ctx)?;
+
+                Ok(ctx.nodes.make_un_op(child, ast::UnaryOp::Mag))
             }
 
-            let Some(children) = children else {
-                bail!("Empty parentheses are not permitted!")
-            };
+            ("‖", "‖") => {
+                let Some(children) = children else {
+                    bail!("Empty norm is not permitted!")
+                };
 
-            let children = match &**children {
-                IntermediateAST::Sequence { children } => {
-                    parse_comma_separated(children, |x| parse_sequence(x, ctx))?
-                }
-                _ => {
-                    let children = std::slice::from_ref(&**children);
+                let child = parse_base_term(children, ctx)?;
 
-                    vec![parse_sequence(children, ctx)?]
-                }
-            };
+                Ok(ctx.nodes.make_un_op(child, ast::UnaryOp::Norm))
+            }
 
-            let node = ExprNode::Parens {
-                prefix: None,
-                args: children,
-            };
-
-            Ok(ctx.nodes.make(node))
-        }
+            (left, right) => {
+                bail!("Unexpected parentheses: `{left}`, `{right}`")
+            }
+        },
         IntermediateAST::Root { index, radicand } => {
             if let Some(index) = index {
                 parse_binary(ast::BinaryOp::NthRoot, index, radicand, ctx)

@@ -64,6 +64,8 @@ impl NodeId {
                     let s = match op {
                         UnaryOp::Sqrt => "sqrt",
                         UnaryOp::Conj => "conj",
+                        UnaryOp::Mag => "mag",
+                        UnaryOp::Norm => "norm",
                         _ => unreachable!(),
                     };
 
@@ -188,6 +190,8 @@ pub enum UnaryOp {
     Sqrt,
     Neg,
     Conj,
+    Mag,
+    Norm,
 }
 
 impl Display for UnaryOp {
@@ -196,6 +200,8 @@ impl Display for UnaryOp {
             UnaryOp::Sqrt => "sqrt",
             UnaryOp::Neg => "-",
             UnaryOp::Conj => "conj",
+            UnaryOp::Mag => "mag",
+            UnaryOp::Norm => "norm",
         };
 
         write!(f, "{symbol}")
@@ -208,6 +214,8 @@ impl UnaryOp {
             UnaryOp::Sqrt => term.pow(Value::from(Real::Rational(Rational { num: 1, denom: 2 }))),
             UnaryOp::Neg => Ok(-term),
             UnaryOp::Conj => Ok(term.conjugate()),
+            UnaryOp::Mag => Ok(term.mag()),
+            UnaryOp::Norm => Ok(term.norm()),
         }
     }
 }

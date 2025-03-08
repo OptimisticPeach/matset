@@ -134,6 +134,10 @@ impl Real {
         }
     }
 
+    pub fn sqrt(self) -> Self {
+        self.pow(Rational { num: 1, denom: 2 }.into())
+    }
+
     pub fn nthroot(self, other: Self) -> Self {
         self.pow(other.inverse())
     }

@@ -147,5 +147,10 @@ mod tests {
     fn matrix() {
         let eval_bytes = include_bytes!("./mat_test.json");
         let _reply = super::evaluate(&[], eval_bytes).unwrap();
+
+        let eval_bytes = include_bytes!("./norm_test.json");
+        let reply = super::evaluate(&[], eval_bytes).unwrap();
+
+        panic!("{}", String::from_utf8(reply).unwrap())
     }
 }

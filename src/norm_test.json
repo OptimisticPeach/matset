@@ -1,0 +1,1 @@
+{"func":"equation","block":true,"body":{"func":"lr","body":{"func":"sequence","children":[{"func":"symbol","text":"‖"},{"func":"vec","children":[{"func":"text","text":"3"},{"func":"text","text":"4"}]},{"func":"symbol","text":"‖"}]}}}
