@@ -465,7 +465,7 @@ pub enum IntermediateAST<'a> {
 mod tests {
     use super::TypstAst;
 
-    static TESTING_SRC: &'static str = include_str!("./typst_ast_test_input.json");
+    static TESTING_SRC: &'static str = include_str!("../tests/typst_ast_test_input.json");
 
     #[test]
     fn parses_correctly() {

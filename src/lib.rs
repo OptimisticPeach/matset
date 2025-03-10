@@ -117,40 +117,38 @@ mod tests {
     fn parse_basic_func() {
         let mut ctx = EvalContext::default();
 
-        let bytes = include_bytes!("./function_def.json");
+        let bytes = include_bytes!("../tests/function_def.json");
         parse_eqn_inner(&bytes[..], &mut ctx.idents, &mut ctx.node_store).unwrap();
     }
 
     #[test]
     fn basic_eval() {
-        let func_bytes = include_bytes!("./function_def.json");
+        let func_bytes = include_bytes!("../tests/function_def.json");
         let reply = super::insert(&[], func_bytes).unwrap();
 
-        let expr_bytes = include_bytes!("./expr_test.json");
+        let expr_bytes = include_bytes!("../tests/expr_test.json");
         let _reply = super::evaluate(&reply, expr_bytes).unwrap();
     }
 
     #[test]
     fn decimals() {
-        let eval_bytes = include_bytes!("./decimal_test.json");
+        let eval_bytes = include_bytes!("../tests/decimal_test.json");
         let _reply = super::evaluate(&[], eval_bytes).unwrap();
     }
 
     #[test]
     fn function_comp() {
-        let eval_bytes = include_bytes!("./function_comp.json");
+        let eval_bytes = include_bytes!("../tests/function_comp.json");
         let reply = super::insert(&[], eval_bytes).unwrap();
         let _reply = super::debug_ctx(&reply).unwrap();
     }
 
     #[test]
     fn matrix() {
-        let eval_bytes = include_bytes!("./mat_test.json");
+        let eval_bytes = include_bytes!("../tests/mat_test.json");
         let _reply = super::evaluate(&[], eval_bytes).unwrap();
 
-        let eval_bytes = include_bytes!("./norm_test.json");
-        let reply = super::evaluate(&[], eval_bytes).unwrap();
-
-        panic!("{}", String::from_utf8(reply).unwrap())
+        let eval_bytes = include_bytes!("../tests/norm_test.json");
+        let _reply = super::evaluate(&[], eval_bytes).unwrap();
     }
 }
