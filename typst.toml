@@ -8,5 +8,5 @@ description = "An ergonomic expression evaluator in Typst"
 repository = "https://github.com/OptimisticPeach/matset"
 keywords = ["calculator", "graphing", "plotting"]
 categories = ["visualization", "scripting", "fun"]
-exclude = ["./example.png", "./example_usage.pdf"]
+exclude = ["./example.png"]
 
