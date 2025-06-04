@@ -1,9 +1,9 @@
 #import "typesetting.typ": typeset
 
-#let calc_state = state("calc_state", (plugin("../matset.wasm"), bytes("")))
+#let calc-state = state("calc-state", (plugin("./matset.wasm"), bytes("")))
 
 #let insert(x) = context {
-  calc_state.update(pair => {
+  calc-state.update(pair => {
     let (plug, current) = pair
 
     let reply = plug.insert(current, bytes(json.encode(x)))
@@ -16,7 +16,7 @@
 
 
 #let debug() = context {
-  let (plug, current) = calc_state.get()
+  let (plug, current) = calc-state.get()
 
   let reply = plug.debug_ctx(current)
 
@@ -24,7 +24,7 @@
 }
 
 #let evaluate(expr) = context {
-  let (plug, current) = calc_state.get()
+  let (plug, current) = calc-state.get()
 
   // Need to wrap in new equation in case we don't get an
   // equation and instead get a bare value such as if we
@@ -43,7 +43,7 @@
 }
 
 #let floateval(expr) = context {
-  let (plug, current) = calc_state.get()
+  let (plug, current) = calc-state.get()
   
   let encoded = json.encode($expr$)
 
@@ -55,7 +55,7 @@
 }
 
 #let floatexpr(callback) = context {
-  let (plug, current) = calc_state.get()
+  let (plug, current) = calc-state.get()
 
   callback(expr => {
     let encoded = json.encode($expr$)

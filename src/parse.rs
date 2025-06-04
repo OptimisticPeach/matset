@@ -408,7 +408,6 @@ fn parse_sequence(mut ast: &[IntermediateAST<'_>], ctx: &mut ParseContext<'_>) -
 }
 
 fn parse_base_term(ast: &IntermediateAST<'_>, ctx: &mut ParseContext<'_>) -> Result<NodeId> {
-    println!("Got here: {ast:?}");
     match ast {
         IntermediateAST::Sequence { children } => parse_sequence(children, ctx),
         IntermediateAST::Comma => bail!("Unexpected comma in expression!"),
