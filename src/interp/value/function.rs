@@ -31,6 +31,9 @@ impl BuiltinUnary {
         };
 
         match param {
+            Value::One => Ok(self.apply_real(Real::from(1))),
+            Value::Zero => Ok(self.apply_real(Real::from(0))),
+            Value::NegOne => Ok(self.apply_real(Real::from(-1))),
             Value::Real(real) => Ok(self.apply_real(*real)),
             Value::Complex(complex) => Ok(self.apply_complex(*complex)),
             Value::Mat(mat) => Ok(self.apply_mat(mat)),
@@ -68,7 +71,7 @@ impl BuiltinUnary {
         .into()
     }
 
-    pub fn apply_mat(self, val: &Matrix<Complex<Real>>) -> Value {
+    pub fn apply_mat(self, val: &Matrix<Value>) -> Value {
         match self {
             BuiltinUnary::Det => val.det().into(),
             BuiltinUnary::Trace => val.trace().into(),

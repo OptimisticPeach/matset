@@ -1,11 +1,11 @@
 use std::{
     fmt::Display,
-    ops::{Add, Index, Mul, Neg, Sub},
+    ops::{Add, Index, IndexMut, Mul, Neg, Sub},
 };
 
 use serde::{Deserialize, Serialize};
 
-use super::{Ring, complex::Complex, real::Real};
+use super::{Ring, Value};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Matrix<T: Ring + Clone> {
@@ -116,32 +116,61 @@ impl<T: Ring> Matrix<T> {
 
         self
     }
+
+    pub fn inverse(self) -> Self {
+        unimplemented!()
+    }
+
+    pub fn identity(&self) -> Self {
+        if self.rows != self.cols {
+            panic!("Rectangular matrices don't have identities!");
+        }
+
+        self.diagonal(std::iter::repeat(T::ONE))
+    }
+
+    pub fn diagonal(&self, mut items: impl Iterator<Item = T>) -> Self {
+        let size = self.rows as usize * self.cols as usize;
+
+        let data = Vec::from_iter(std::iter::repeat(T::ZERO).take(size));
+
+        let mut me = Self { data, ..*self };
+
+        for i in 0..self.rows {
+            me[(i, i)] = items.next().unwrap();
+        }
+
+        me
+    }
 }
 
-impl Matrix<Complex<Real>> {
+impl Matrix<Value> {
     pub fn floatify(&mut self) {
-        self.data.iter_mut().for_each(Complex::<Real>::floatify);
+        self.data.iter_mut().for_each(Value::floatify);
     }
 
-    pub fn norm(&self) -> Complex<Real> {
-        let result = self.clone().conj_transpose() * self.clone();
-
-        assert!(result.rows == 1, "Cannot take norm of non vector");
-        assert!(result.cols == 1, "Cannot take norm of non vector");
-
-        result.data[0].sqrt()
-    }
-}
-
-impl<T: Ring> Matrix<Complex<T>> {
     pub fn conj(mut self) -> Self {
-        self.data.iter_mut().for_each(|x| *x = x.clone().conj());
+        self.data
+            .iter_mut()
+            .for_each(|x| *x = x.clone().conjugate());
 
         self
     }
 
     pub fn conj_transpose(self) -> Self {
         self.conj().transpose()
+    }
+
+    pub fn norm_squared(&self) -> Value {
+        let result: Self = self.clone().conj_transpose() * self.clone();
+
+        let rows = PartialEq::eq(&result.rows, &1);
+        let cols = PartialEq::eq(&result.cols, &1);
+
+        assert!(rows, "Cannot take norm of non vector");
+        assert!(cols, "Cannot take norm of non vector");
+
+        result.data[0].clone()
     }
 }
 
@@ -181,10 +210,18 @@ impl<T: Ring + Clone> Default for Matrix<T> {
 impl<T: Ring + Clone> Index<(u8, u8)> for Matrix<T> {
     type Output = T;
 
-    fn index(&self, (col, row): (u8, u8)) -> &Self::Output {
+    fn index(&self, (col, row): (u8, u8)) -> &T {
         let idx = col as usize * self.rows as usize + row as usize;
 
         &self.data[idx]
+    }
+}
+
+impl<T: Ring + Clone> IndexMut<(u8, u8)> for Matrix<T> {
+    fn index_mut(&mut self, (col, row): (u8, u8)) -> &mut T {
+        let idx = col as usize * self.rows as usize + row as usize;
+
+        &mut self.data[idx]
     }
 }
 

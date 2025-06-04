@@ -22,6 +22,12 @@ impl From<f64> for Real {
     }
 }
 
+impl From<i128> for Real {
+    fn from(value: i128) -> Self {
+        Self::Rational(value.into())
+    }
+}
+
 impl Real {
     pub fn to_f64(self) -> f64 {
         match self {
@@ -120,7 +126,8 @@ macro_rules! unary_fn {
 }
 
 unary_fn!(
-    sin, cos, tan, sinh, cosh, tanh, asin, acos, atan, asinh, acosh, atanh, exp, log2, log10, ln
+    sin, cos, tan, sinh, cosh, tanh, asin, acos, atan, asinh, acosh, atanh, exp, log2, log10, ln,
+    abs
 );
 
 impl Real {

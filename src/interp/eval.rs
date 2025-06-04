@@ -67,14 +67,6 @@ pub fn eval_inner(
             let new_elems = elems
                 .iter()
                 .map(|x| eval_inner(*x, ctx, locals))
-                .map(|x| {
-                    x.and_then(|y| match y {
-                        Value::Real(r) => Ok(r.into()),
-                        Value::Complex(c) => Ok(c),
-                        Value::Mat(_) => bail!("Unexpected matrix in matrix!"),
-                        Value::Function(_) => bail!("Unexpected function in matrix!"),
-                    })
-                })
                 .collect::<Result<Vec<_>>>()?;
 
             Ok(Value::Mat(super::value::mat::Matrix {
